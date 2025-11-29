@@ -1,0 +1,238 @@
+FrancoSport-web/
+│
+├── 📁 public/
+│   ├── favicon.ico
+│   └── logo.svg
+│
+├── 📁 src/
+│   │
+│   ├── 📁 api/                    # 🌐 API Services
+│   │   ├── axios.ts
+│   │   ├── auth.ts
+│   │   ├── products.ts
+│   │   ├── cart.ts
+│   │   ├── orders.ts
+│   │   ├── admin.ts
+│   │   ├── categories.ts
+│   │   ├── brands.ts
+│   │   ├── coupons.ts
+│   │   ├── reviews.ts
+│   │   ├── shipping.ts
+│   │   ├── users.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 components/             # 🧩 Components
+│   │   │
+│   │   ├── 📁 ui/                # Base Components
+│   │   │   ├── Button.tsx
+│   │   │   ├── Input.tsx
+│   │   │   ├── Textarea.tsx
+│   │   │   ├── Select.tsx
+│   │   │   ├── Card.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   ├── Toast.tsx
+│   │   │   ├── Badge.tsx
+│   │   │   ├── Spinner.tsx
+│   │   │   ├── Skeleton.tsx
+│   │   │   ├── Table.tsx
+│   │   │   ├── Pagination.tsx
+│   │   │   ├── Breadcrumbs.tsx
+│   │   │   ├── Tabs.tsx
+│   │   │   ├── Accordion.tsx
+│   │   │   ├── Rating.tsx
+│   │   │   ├── Checkbox.tsx
+│   │   │   ├── Radio.tsx
+│   │   │   ├── Switch.tsx
+│   │   │   ├── Avatar.tsx
+│   │   │   ├── Tooltip.tsx
+│   │   │   └── README.md
+│   │   │
+│   │   ├── 📁 layout/            # Layout Components
+│   │   │   ├── Header.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── MainLayout.tsx
+│   │   │   ├── AdminLayout.tsx
+│   │   │   ├── AuthLayout.tsx
+│   │   │   ├── Container.tsx
+│   │   │   ├── Section.tsx
+│   │   │   └── README.md
+│   │   │
+│   │   ├── 📁 products/          # Product Components
+│   │   │   ├── ProductCard.tsx
+│   │   │   ├── ProductGrid.tsx
+│   │   │   ├── ProductDetail.tsx
+│   │   │   ├── ProductGallery.tsx
+│   │   │   ├── ProductFilters.tsx
+│   │   │   ├── ProductSearch.tsx
+│   │   │   ├── ProductVariants.tsx
+│   │   │   ├── ProductReviews.tsx
+│   │   │   ├── RelatedProducts.tsx
+│   │   │   ├── ProductSorter.tsx
+│   │   │   └── README.md
+│   │   │
+│   │   ├── 📁 cart/              # Cart Components
+│   │   │   ├── CartIcon.tsx
+│   │   │   ├── CartDrawer.tsx
+│   │   │   ├── CartItem.tsx
+│   │   │   ├── CartSummary.tsx
+│   │   │   ├── EmptyCart.tsx
+│   │   │   ├── CouponInput.tsx
+│   │   │   └── README.md
+│   │   │
+│   │   ├── 📁 checkout/          # Checkout Components
+│   │   │   ├── CheckoutSteps.tsx
+│   │   │   ├── ContactForm.tsx
+│   │   │   ├── ShippingForm.tsx
+│   │   │   ├── ShippingMethods.tsx
+│   │   │   ├── PaymentForm.tsx
+│   │   │   ├── OrderSummary.tsx
+│   │   │   ├── OrderConfirmation.tsx
+│   │   │   └── README.md
+│   │   │
+│   │   ├── 📁 auth/              # Auth Components
+│   │   │   ├── LoginForm.tsx
+│   │   │   ├── RegisterForm.tsx
+│   │   │   ├── ForgotPasswordForm.tsx
+│   │   │   ├── ResetPasswordForm.tsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── AdminRoute.tsx
+│   │   │   └── README.md
+│   │   │
+│   │   └── 📁 admin/             # Admin Components
+│   │       ├── AdminSidebar.tsx
+│   │       ├── AdminHeader.tsx
+│   │       ├── Dashboard.tsx
+│   │       ├── StatsCard.tsx
+│   │       ├── SalesChart.tsx
+│   │       ├── ProductsTable.tsx
+│   │       ├── ProductForm.tsx
+│   │       ├── OrdersTable.tsx
+│   │       ├── OrderDetail.tsx
+│   │       ├── UsersTable.tsx
+│   │       ├── CouponsTable.tsx
+│   │       ├── CouponForm.tsx
+│   │       ├── CategoryManager.tsx
+│   │       ├── BrandManager.tsx
+│   │       ├── ShippingManager.tsx
+│   │       ├── ReviewsModeration.tsx
+│   │       └── README.md
+│   │
+│   ├── 📁 pages/                 # 📄 Pages
+│   │   ├── Home.tsx
+│   │   ├── Products.tsx
+│   │   ├── ProductDetail.tsx
+│   │   ├── Cart.tsx
+│   │   ├── Checkout.tsx
+│   │   ├── Login.tsx
+│   │   ├── Register.tsx
+│   │   ├── ForgotPassword.tsx
+│   │   ├── ResetPassword.tsx
+│   │   ├── Profile.tsx
+│   │   ├── Orders.tsx
+│   │   ├── OrderDetail.tsx
+│   │   ├── Wishlist.tsx
+│   │   ├── Addresses.tsx
+│   │   ├── NotFound.tsx
+│   │   ├── Unauthorized.tsx
+│   │   ├── ServerError.tsx
+│   │   ├── README.md
+│   │   │
+│   │   └── 📁 admin/            # Admin Pages
+│   │       ├── AdminDashboard.tsx
+│   │       ├── AdminProducts.tsx
+│   │       ├── AdminProductCreate.tsx
+│   │       ├── AdminProductEdit.tsx
+│   │       ├── AdminOrders.tsx
+│   │       ├── AdminOrderDetail.tsx
+│   │       ├── AdminUsers.tsx
+│   │       ├── AdminCoupons.tsx
+│   │       ├── AdminCategories.tsx
+│   │       ├── AdminBrands.tsx
+│   │       ├── AdminShipping.tsx
+│   │       ├── AdminReviews.tsx
+│   │       ├── AdminSettings.tsx
+│   │       ├── AdminLogs.tsx
+│   │       └── README.md
+│   │
+│   ├── 📁 store/                 # 🏪 Zustand Store
+│   │   ├── authStore.ts
+│   │   ├── cartStore.ts
+│   │   ├── productsStore.ts
+│   │   ├── uiStore.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 hooks/                 # 🪝 Custom Hooks
+│   │   ├── useAuth.ts
+│   │   ├── useCart.ts
+│   │   ├── useProducts.ts
+│   │   ├── useDebounce.ts
+│   │   ├── useLocalStorage.ts
+│   │   ├── useMediaQuery.ts
+│   │   ├── useIntersectionObserver.ts
+│   │   ├── useToast.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 types/                 # 📐 TypeScript Types
+│   │   ├── user.types.ts
+│   │   ├── product.types.ts
+│   │   ├── cart.types.ts
+│   │   ├── order.types.ts
+│   │   ├── api.types.ts
+│   │   ├── form.types.ts
+│   │   ├── category.types.ts
+│   │   ├── brand.types.ts
+│   │   ├── coupon.types.ts
+│   │   ├── review.types.ts
+│   │   ├── shipping.types.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 schemas/               # 🔒 Zod Schemas
+│   │   ├── auth.schemas.ts
+│   │   ├── product.schemas.ts
+│   │   ├── checkout.schemas.ts
+│   │   ├── user.schemas.ts
+│   │   ├── coupon.schemas.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 utils/                 # 🛠️ Utilities
+│   │   ├── formatPrice.ts
+│   │   ├── formatDate.ts
+│   │   ├── cn.ts
+│   │   ├── validation.ts
+│   │   ├── storage.ts
+│   │   ├── slugify.ts
+│   │   ├── calculateDiscount.ts
+│   │   ├── api-error-handler.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 constants/             # 📋 Constants
+│   │   ├── routes.ts
+│   │   ├── config.ts
+│   │   ├── order-status.ts
+│   │   ├── validation-rules.ts
+│   │   └── README.md
+│   │
+│   ├── 📁 assets/                # 🖼️ Assets
+│   │   ├── images/
+│   │   ├── icons/
+│   │   └── fonts/
+│   │
+│   ├── App.tsx                   # Main App Component
+│   ├── main.tsx                  # Entry Point
+│   └── index.css                 # Global Styles
+│
+├── .env.example                  # Environment Variables Template
+├── .env                          # Environment Variables (gitignored)
+├── .gitignore                    # Git Ignore
+├── eslint.config.js              # ESLint Config
+├── index.html                    # HTML Template
+├── package.json                  # Dependencies
+├── postcss.config.js             # PostCSS Config
+├── tailwind.config.js            # Tailwind Config
+├── tsconfig.json                 # TypeScript Config
+├── tsconfig.app.json             # TypeScript App Config
+├── tsconfig.node.json            # TypeScript Node Config
+├── vite.config.ts                # Vite Config
+├── ESTRUCTURA.md                 # This File
+└── README.md                     # Project Documentation
