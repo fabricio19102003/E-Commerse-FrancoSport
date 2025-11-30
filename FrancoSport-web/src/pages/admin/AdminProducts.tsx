@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import type { Product } from '@/types';
 
+import { useConfirm } from '@/hooks/useConfirm';
+
 const AdminProducts: React.FC = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
@@ -32,6 +34,7 @@ const AdminProducts: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
+  const { confirm } = useConfirm();
 
   // Fetch products from API
   const fetchProducts = async () => {
@@ -60,9 +63,14 @@ const AdminProducts: React.FC = () => {
 
   // Handle delete product
   const handleDelete = async (productId: number) => {
-    if (!window.confirm('¿Estás seguro de que deseas eliminar este producto?')) {
-      return;
-    }
+    const isConfirmed = await confirm({
+      title: 'Eliminar Producto',
+      message: '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      variant: 'danger'
+    });
+
+    if (!isConfirmed) return;
 
     try {
       await adminProductsService.deleteProduct(productId);
@@ -174,7 +182,7 @@ const AdminProducts: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar por nombre o SKU..."

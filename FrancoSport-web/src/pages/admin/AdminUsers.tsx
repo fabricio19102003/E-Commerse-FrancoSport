@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import type { User } from '@/types';
 
+import { useConfirm } from '@/hooks/useConfirm';
+
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +38,7 @@ const AdminUsers: React.FC = () => {
     customers: 0,
     admins: 0,
   });
+  const { confirm } = useConfirm();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,11 +91,18 @@ const AdminUsers: React.FC = () => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
 
-    const confirmMessage = user.isActive || user.is_active
+    const confirmMessage = user.is_active
       ? '¿Estás seguro de que deseas desactivar este usuario?'
       : '¿Estás seguro de que deseas activar este usuario?';
 
-    if (!window.confirm(confirmMessage)) return;
+    const isConfirmed = await confirm({
+      title: user.is_active ? 'Desactivar Usuario' : 'Activar Usuario',
+      message: confirmMessage,
+      confirmText: user.is_active ? 'Desactivar' : 'Activar',
+      variant: user.is_active ? 'danger' : 'warning'
+    });
+
+    if (!isConfirmed) return;
 
     try {
       await adminUsersService.toggleUserStatus(userId);
@@ -273,8 +283,8 @@ const AdminUsers: React.FC = () => {
               <tbody>
                 {users.map((user) => {
                   const roleBadge = getRoleBadge(user.role);
-                  const isActive = user.isActive ?? user.is_active;
-                  const emailVerified = user.emailVerified ?? user.email_verified;
+                  const isActive = user.is_active;
+                  const emailVerified = user.email_verified;
 
                   return (
                     <tr key={user.id} className="border-t border-neutral-800 hover:bg-neutral-900/50">
@@ -282,16 +292,16 @@ const AdminUsers: React.FC = () => {
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                             <span className="text-primary font-bold">
-                              {(user.firstName || user.first_name || 'U')[0].toUpperCase()}
+                              {(user.first_name || 'U')[0].toUpperCase()}
                             </span>
                           </div>
                           <div>
                             <p className="font-medium text-white">
-                              {user.firstName || user.first_name} {user.lastName || user.last_name}
+                              {user.first_name} {user.last_name}
                             </p>
                             <div className="flex items-center space-x-2 text-xs text-neutral-400">
                               <Calendar className="w-3 h-3" />
-                              <span>Registrado {formatDate(user.createdAt || user.created_at)}</span>
+                              <span>Registrado {formatDate(user.created_at)}</span>
                               {emailVerified && (
                                 <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded">
                                   <CheckCircle className="w-3 h-3" />
@@ -305,9 +315,9 @@ const AdminUsers: React.FC = () => {
                       <td className="px-6 py-4">
                         <div>
                           <p className="text-sm text-neutral-300">{user.email}</p>
-                          {user.lastLogin || user.last_login ? (
+                          {user.last_login ? (
                             <p className="text-xs text-neutral-500">
-                              Último acceso: {formatDate(user.lastLogin || user.last_login)}
+                              Último acceso: {formatDate(user.last_login)}
                             </p>
                           ) : (
                             <p className="text-xs text-neutral-500">Sin accesos recientes</p>
@@ -320,11 +330,11 @@ const AdminUsers: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-neutral-300">{user.ordersCount || 0}</p>
+                        <p className="text-sm text-neutral-300">{(user as any).orders_count || 0}</p>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-white">
-                          ${(user.totalSpent || 0).toFixed(2)}
+                          ${((user as any).total_spent || 0).toFixed(2)}
                         </p>
                       </td>
                       <td className="px-6 py-4">

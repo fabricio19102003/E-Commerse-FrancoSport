@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { ROUTES } from '@/constants/routes';
 
 // Layouts
@@ -11,6 +12,14 @@ import { ProtectedRoute, AdminRoute, GuestRoute } from '@/components/auth';
 // Public Pages
 import Home from '@/pages/Home';
 import Products from '@/pages/Products';
+import ProductDetail from '@/pages/ProductDetail';
+import Categories from '@/pages/Categories';
+import Brands from '@/pages/Brands';
+import Cart from '@/pages/Cart';
+import Checkout from '@/pages/Checkout';
+import Profile from '@/pages/Profile';
+import OrderDetail from '@/pages/OrderDetail';
+import Wishlist from '@/pages/Wishlist';
 import NotFound from '@/pages/NotFound';
 import Unauthorized from '@/pages/Unauthorized';
 
@@ -35,10 +44,8 @@ import {
   AdminSettings,
 } from '@/pages/admin';
 
-// Protected Pages (Placeholder - crearemos después)
-const Profile = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Mi Perfil</h1></div>;
-const Orders = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Mis Pedidos</h1></div>;
-const Wishlist = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Mis Favoritos</h1></div>;
+// Protected Pages// Placeholder components for routes not yet implemented
+
 
 function App() {
   return (
@@ -66,12 +73,16 @@ function App() {
           },
         }}
       />
+      <ConfirmationModal />
 
       <Routes>
         {/* ===== PUBLIC ROUTES WITH LAYOUT ===== */}
         <Route element={<MainLayout />}>
           <Route path={ROUTES.HOME} element={<Home />} />
           <Route path={ROUTES.PRODUCTS} element={<Products />} />
+          <Route path={ROUTES.PRODUCT_DETAIL} element={<ProductDetail />} />
+          <Route path={ROUTES.CATEGORIES} element={<Categories />} />
+          <Route path={ROUTES.BRANDS} element={<Brands />} />
           {/* TODO: Agregar más rutas públicas aquí */}
         </Route>
 
@@ -95,6 +106,15 @@ function App() {
 
         {/* ===== PROTECTED ROUTES (AUTHENTICATED USERS) ===== */}
         <Route element={<MainLayout />}>
+          <Route path={ROUTES.CART} element={<Cart />} />
+          <Route
+            path={ROUTES.CHECKOUT}
+            element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path={ROUTES.PROFILE}
             element={
@@ -104,10 +124,18 @@ function App() {
             }
           />
           <Route
+            path={ROUTES.ORDER_DETAIL}
+            element={
+              <ProtectedRoute>
+                <OrderDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={ROUTES.ORDERS}
             element={
               <ProtectedRoute>
-                <Orders />
+                <Navigate to={`${ROUTES.PROFILE}?tab=orders`} replace />
               </ProtectedRoute>
             }
           />

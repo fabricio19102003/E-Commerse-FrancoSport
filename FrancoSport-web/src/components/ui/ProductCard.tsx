@@ -8,7 +8,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui";
-import { ShoppingCart, Heart, Star } from "lucide-react";
+import { ShoppingCart, Heart, Star, Eye } from "lucide-react";
 import type { Product } from "@/types";
 import { useCartStore } from "@/store";
 import toast from "react-hot-toast";
@@ -40,78 +40,89 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     product.compare_at_price && product.compare_at_price > product.price;
   const discountPercentage = hasDiscount
     ? Math.round(
-        ((product.compare_at_price! - product.price) /
-          product.compare_at_price!) *
+        ((Number(product.compare_at_price!) - Number(product.price)) /
+          Number(product.compare_at_price!)) *
           100
       )
     : 0;
 
   return (
-    <Link
-      to={`/producto/${product.slug}`}
-      className="group block bg-surface rounded-lg overflow-hidden border border-surface-lighter hover:border-primary/50 transition-all duration-300 hover:shadow-glow"
-    >
-      {/* Image Container */}
-      <div className="relative aspect-square overflow-hidden bg-surface-light">
-        <img
-          src={product.images[0]?.url || "https://via.placeholder.com/400"}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-        />
+    <div className="group block bg-surface rounded-lg overflow-hidden border border-surface-lighter hover:border-primary/50 transition-all duration-300 hover:shadow-glow relative">
+      <Link to={`/producto/${product.slug}`} className="block">
+        {/* Image Container */}
+        <div className="relative aspect-square overflow-hidden bg-surface-light">
+          <img
+            src={product.images[0]?.url || "https://via.placeholder.com/400"}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          />
 
-        {/* Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          {/* Overlays */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
-          {hasDiscount && (
-            <Badge variant="danger" className="shadow-md">
-              -{discountPercentage}%
-            </Badge>
-          )}
-          {product.is_featured && (
-            <Badge variant="warning" className="shadow-md">
-              Destacado
-            </Badge>
-          )}
-          {product.stock === 0 && (
-            <Badge variant="default" className="shadow-md">
-              Agotado
-            </Badge>
-          )}
-          {product.stock > 0 &&
-            product.stock <= product.low_stock_threshold && (
-              <Badge variant="warning" className="shadow-md">
-                ¡Últimas unidades!
+          {/* Badges */}
+          <div className="absolute top-3 left-3 flex flex-col gap-2">
+            {hasDiscount && (
+              <Badge variant="danger" className="shadow-md">
+                -{discountPercentage}%
               </Badge>
             )}
+            {product.is_featured && (
+              <Badge variant="warning" className="shadow-md">
+                Destacado
+              </Badge>
+            )}
+            {product.stock === 0 && (
+              <Badge variant="default" className="shadow-md">
+                Agotado
+              </Badge>
+            )}
+            {product.stock > 0 &&
+              product.stock <= product.low_stock_threshold && (
+                <Badge variant="warning" className="shadow-md">
+                  ¡Últimas unidades!
+                </Badge>
+              )}
+          </div>
         </div>
+      </Link>
 
-        {/* Action Buttons */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <button
-            onClick={handleAddToWishlist}
-            className="p-2 bg-surface/90 backdrop-blur-sm rounded-full hover:bg-primary hover:text-white transition-colors shadow-md"
-            title="Agregar a favoritos"
-          >
-            <Heart className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Quick Add to Cart (Mobile & Desktop) */}
-        {product.stock > 0 && (
-          <button
-            onClick={handleAddToCart}
-            className="absolute bottom-3 left-3 right-3 bg-primary hover:bg-primary-700 text-white py-2 px-4 rounded-md font-bold uppercase text-sm flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 shadow-lg"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            Agregar al Carrito
-          </button>
-        )}
+      {/* Action Buttons */}
+      <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+        <button
+          onClick={handleAddToWishlist}
+          className="p-2 bg-surface/90 backdrop-blur-sm rounded-full hover:bg-primary hover:text-white transition-colors shadow-md"
+          title="Agregar a favoritos"
+        >
+          <Heart className="h-5 w-5" />
+        </button>
       </div>
 
+      {/* Quick Add to Cart (Mobile & Desktop) */}
+      {product.stock > 0 && (
+        <div className="absolute bottom-[100px] left-3 right-3 z-10">
+           {product.variants && product.variants.length > 0 ? (
+            <Link
+              to={`/producto/${product.slug}`}
+              className="w-full bg-primary hover:bg-primary-700 text-white py-2 px-4 rounded-md font-bold uppercase text-sm flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 shadow-lg"
+            >
+              <Eye className="h-4 w-4" />
+              Ver Opciones
+            </Link>
+          ) : (
+            <button
+              onClick={handleAddToCart}
+              className="w-full bg-primary hover:bg-primary-700 text-white py-2 px-4 rounded-md font-bold uppercase text-sm flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 shadow-lg"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Agregar al Carrito
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Content */}
-      <div className="p-4">
+      <Link to={`/producto/${product.slug}`} className="block p-4">
         {/* Title */}
         <h3 className="font-bold text-text-primary mb-1 line-clamp-2 group-hover:text-primary transition-colors">
           {product.name}
@@ -150,16 +161,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Price */}
         <div className="flex items-center gap-2">
           <span className="text-2xl font-black text-primary">
-            ${product.price.toFixed(2)}
+            ${Number(product.price).toFixed(2)}
           </span>
           {hasDiscount && (
             <span className="text-sm text-text-tertiary line-through">
-              ${product.compare_at_price!.toFixed(2)}
+              ${Number(product.compare_at_price!).toFixed(2)}
             </span>
           )}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 };
 

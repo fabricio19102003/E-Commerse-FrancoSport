@@ -16,3 +16,6 @@ export * from './productsStore';
 
 // UI Store
 export * from './uiStore';
+
+// Wishlist Store
+export * from './wishlistStore';

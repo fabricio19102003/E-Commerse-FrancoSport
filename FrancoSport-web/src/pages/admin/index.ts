@@ -13,10 +13,10 @@ export { default as AdminOrders } from './AdminOrders';
 export { default as AdminOrderDetail } from './AdminOrderDetail';
 export { default as AdminUsers } from './AdminUsers';
 export { default as AdminCategories } from './AdminCategories';
+export { default as AdminBrands } from './AdminBrands';
+export { default as AdminCoupons } from './AdminCoupons';
+export { default as AdminShipping } from './AdminShipping';
+export { default as AdminReviews } from './AdminReviews';
 export {
-  AdminBrands,
-  AdminCoupons,
-  AdminShipping,
-  AdminReviews,
   AdminSettings,
 } from './AdminPlaceholders';

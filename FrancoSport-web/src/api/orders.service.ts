@@ -33,3 +33,11 @@ export const getOrder = async (orderNumber: string): Promise<Order> => {
 export const cancelOrder = async (orderNumber: string, reason: string): Promise<void> => {
   await api.post(`/orders/${orderNumber}/cancel`, { reason });
 };
+
+/**
+ * Create order
+ */
+export const createOrder = async (data: any): Promise<Order> => {
+  const response = await api.post<{ success: boolean; data: Order }>('/orders', data);
+  return response.data.data;
+};

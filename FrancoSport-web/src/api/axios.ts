@@ -75,13 +75,15 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error: AxiosError<ApiResponse>) => {
-    // Log de error
-    console.error('❌ Response Error:', {
-      status: error.response?.status,
-      url: error.config?.url,
-      message: error.message,
-      data: error.response?.data,
-    });
+    // Log de error (excepto 404)
+    if (error.response?.status !== 404) {
+      console.error('❌ Response Error:', {
+        status: error.response?.status,
+        url: error.config?.url,
+        message: error.message,
+        data: error.response?.data,
+      });
+    }
 
     // Manejar errores específicos
     if (error.response) {
@@ -99,8 +101,8 @@ axiosInstance.interceptors.response.use(
           break;
 
         case 404:
-          // Recurso no encontrado
-          console.warn('🔍 Not Found:', (data as any).message);
+          // Recurso no encontrado - Silently handle or debug log only
+          // console.warn('🔍 Not Found:', (data as any).message);
           break;
 
         case 422:

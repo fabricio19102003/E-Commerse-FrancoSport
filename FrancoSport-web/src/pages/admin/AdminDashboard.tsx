@@ -8,8 +8,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
+import { getDashboardStats, getRecentOrders, getTopProducts } from '@/api/admin/dashboard.service';
+import type { DashboardStats, RecentOrder, TopProduct } from '@/api/admin/dashboard.service';
 import {
-  TrendingUp,
   ShoppingCart,
   Users,
   Package,
@@ -19,75 +20,39 @@ import {
   ArrowDownRight,
   Clock,
   CheckCircle,
-  XCircle,
   Truck,
 } from 'lucide-react';
 
-interface DashboardStats {
-  totalSales: number;
-  salesGrowth: number;
-  totalOrders: number;
-  ordersGrowth: number;
-  totalCustomers: number;
-  customersGrowth: number;
-  totalProducts: number;
-  lowStockProducts: number;
-  pendingOrders: number;
-  processingOrders: number;
-  shippedOrders: number;
-  deliveredOrders: number;
-}
-
 const AdminDashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalSales: 12450.50,
-    salesGrowth: 12.5,
-    totalOrders: 48,
-    ordersGrowth: 8.3,
-    totalCustomers: 156,
-    customersGrowth: 15.2,
-    totalProducts: 24,
-    lowStockProducts: 3,
-    pendingOrders: 5,
-    processingOrders: 8,
-    shippedOrders: 12,
-    deliveredOrders: 23,
-  });
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [recentOrders, setRecentOrders] = useState([
-    {
-      id: 1,
-      orderNumber: 'FS-2024-00001',
-      customer: 'Juan Pérez',
-      total: 285.00,
-      status: 'PENDING',
-      date: '2024-11-29',
-    },
-    {
-      id: 2,
-      orderNumber: 'FS-2024-00002',
-      customer: 'María González',
-      total: 450.00,
-      status: 'PROCESSING',
-      date: '2024-11-29',
-    },
-    {
-      id: 3,
-      orderNumber: 'FS-2024-00003',
-      customer: 'Carlos Rodríguez',
-      total: 180.00,
-      status: 'SHIPPED',
-      date: '2024-11-28',
-    },
-    {
-      id: 4,
-      orderNumber: 'FS-2024-00004',
-      customer: 'Ana Martínez',
-      total: 320.00,
-      status: 'DELIVERED',
-      date: '2024-11-28',
-    },
-  ]);
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [statsData, ordersData, topProductsData] = await Promise.all([
+        getDashboardStats(),
+        getRecentOrders(5),
+        getTopProducts(5)
+      ]);
+      
+      setStats(statsData);
+      setRecentOrders(ordersData);
+      setTopProducts(topProductsData);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Error al cargar el dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -123,6 +88,37 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500 mb-4">{error || 'Error al cargar datos'}</p>
+        <button
+          onClick={fetchDashboardData}
+          className="text-primary hover:underline"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -151,7 +147,7 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <ArrowDownRight className="w-4 h-4" />
               )}
-              <span>{Math.abs(stats.salesGrowth)}%</span>
+              <span>{Math.abs(stats.salesGrowth).toFixed(1)}%</span>
             </div>
           </div>
           <h3 className="text-2xl font-black text-white mb-1">
@@ -176,7 +172,7 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <ArrowDownRight className="w-4 h-4" />
               )}
-              <span>{Math.abs(stats.ordersGrowth)}%</span>
+              <span>{Math.abs(stats.ordersGrowth).toFixed(1)}%</span>
             </div>
           </div>
           <h3 className="text-2xl font-black text-white mb-1">{stats.totalOrders}</h3>
@@ -199,7 +195,7 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <ArrowDownRight className="w-4 h-4" />
               )}
-              <span>{Math.abs(stats.customersGrowth)}%</span>
+              <span>{Math.abs(stats.customersGrowth).toFixed(1)}%</span>
             </div>
           </div>
           <h3 className="text-2xl font-black text-white mb-1">{stats.totalCustomers}</h3>
@@ -219,7 +215,7 @@ const AdminDashboard: React.FC = () => {
               Ver todos →
             </Link>
           </div>
-          <h3 className="text-2xl font-black text-white mb-1">
+          <h3 className="text-2xl font-black text-white">
             {stats.lowStockProducts}
           </h3>
           <p className="text-sm text-neutral-400">Productos con Stock Bajo</p>
@@ -298,45 +294,103 @@ const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id} className="border-b border-neutral-800/50">
-                  <td className="py-4">
-                    <span className="text-sm font-medium text-white">
-                      {order.orderNumber}
-                    </span>
-                  </td>
-                  <td className="py-4">
-                    <span className="text-sm text-neutral-300">{order.customer}</span>
-                  </td>
-                  <td className="py-4">
-                    <span className="text-sm font-medium text-white">
-                      ${order.total.toFixed(2)}
-                    </span>
-                  </td>
-                  <td className="py-4">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        order.status
-                      )}`}
-                    >
-                      {getStatusLabel(order.status)}
-                    </span>
-                  </td>
-                  <td className="py-4">
-                    <span className="text-sm text-neutral-400">{order.date}</span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <Link
-                      to={`${ROUTES.ADMIN_ORDERS}/${order.orderNumber}`}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Ver detalle →
-                    </Link>
+              {recentOrders.length > 0 ? (
+                recentOrders.map((order) => (
+                  <tr key={order.id} className="border-b border-neutral-800/50">
+                    <td className="py-4">
+                      <span className="text-sm font-medium text-white">
+                        {order.orderNumber}
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span className="text-sm text-neutral-300">{order.customer.name}</span>
+                    </td>
+                    <td className="py-4">
+                      <span className="text-sm font-medium text-white">
+                        ${order.total.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          order.status
+                        )}`}
+                      >
+                        {getStatusLabel(order.status)}
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span className="text-sm text-neutral-400">{formatDate(order.createdAt)}</span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <Link
+                        to={`${ROUTES.ADMIN_ORDERS}/${order.orderNumber}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Ver detalle →
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-neutral-500">
+                    No hay pedidos recientes
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Top Products */}
+      <div className="bg-[#1A1A1A] border border-neutral-800 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-black text-white">Productos Más Vendidos</h2>
+          <Link
+            to={ROUTES.ADMIN_PRODUCTS}
+            className="text-sm text-primary hover:underline font-medium"
+          >
+            Ver catálogo →
+          </Link>
+        </div>
+
+        <div className="space-y-4">
+          {topProducts.length > 0 ? (
+            topProducts.map((product, index) => (
+              <div key={product.id} className="flex items-center space-x-4 p-4 bg-black/50 rounded-lg">
+                <div className="flex-shrink-0 relative">
+                  <span className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-black text-xs font-bold rounded-full flex items-center justify-center">
+                    #{index + 1}
+                  </span>
+                  <img
+                    src={product.image || 'https://via.placeholder.com/150'}
+                    alt={product.name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-white truncate">
+                    {product.name}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    {product.soldCount} unidades vendidas
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-white">
+                    ${product.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-green-500">Ingresos</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-neutral-500">
+              No hay datos de ventas aún
+            </div>
+          )}
         </div>
       </div>
 

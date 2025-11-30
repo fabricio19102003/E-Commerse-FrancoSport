@@ -135,7 +135,7 @@ const CartDrawer: React.FC = () => {
 
                     {/* Price */}
                     <p className="text-primary font-bold mb-2">
-                      ${item.price_at_add.toFixed(2)}
+                      ${Number(item.price_at_add).toFixed(2)}
                     </p>
 
                     {/* Quantity Controls */}

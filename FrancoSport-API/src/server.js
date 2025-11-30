@@ -19,6 +19,12 @@ import userRoutes from './routes/user.routes.js';
 import adminProductsRoutes from './routes/admin/products.routes.js';
 import adminOrdersRoutes from './routes/admin/orders.routes.js';
 import adminUsersRoutes from './routes/admin/users.routes.js';
+import adminDashboardRoutes from './routes/admin/dashboard.routes.js';
+import adminCategoriesRoutes from './routes/admin/categories.routes.js';
+import adminBrandsRoutes from './routes/admin/brands.routes.js';
+import adminCouponsRoutes from './routes/admin/coupons.routes.js';
+import adminShippingRoutes from './routes/admin/shipping.routes.js';
+import adminReviewsRoutes from './routes/admin/reviews.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 
 // Import middleware
@@ -71,6 +77,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin/products', adminProductsRoutes);
 app.use('/api/admin/orders', adminOrdersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
+app.use('/api/admin/dashboard', adminDashboardRoutes);
+app.use('/api/admin/categories', adminCategoriesRoutes);
+app.use('/api/admin/brands', adminBrandsRoutes);
+app.use('/api/admin/coupons', adminCouponsRoutes);
+app.use('/api/admin/shipping', adminShippingRoutes);
+app.use('/api/admin/reviews', adminReviewsRoutes);
 
 // Upload Routes
 app.use('/api/upload', uploadRoutes);

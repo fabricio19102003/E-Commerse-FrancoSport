@@ -20,7 +20,7 @@ interface UIState {
   isFiltersOpen: boolean;
   theme: Theme;
   viewMode: ViewMode;
-  
+
   // Modal Management
   activeModal: string | null;
   modalData: any;
@@ -52,13 +52,34 @@ interface UIState {
   openModal: (modalId: string, data?: any) => void;
   closeModal: () => void;
 
+  // Confirmation Modal
+  confirmationModal: {
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
+    variant: 'danger' | 'warning' | 'info';
+    resolver: ((value: boolean) => void) | null;
+  };
+
+  openConfirmation: (options: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
+  }) => Promise<boolean>;
+
+  closeConfirmation: (confirmed: boolean) => void;
+
   // Close all overlays
   closeAll: () => void;
 }
 
 // ===== STORE =====
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   // ===== INITIAL STATE =====
   isMobileMenuOpen: false,
   isCartDrawerOpen: false,
@@ -146,6 +167,46 @@ export const useUIStore = create<UIState>((set) => ({
       activeModal: null,
       modalData: null,
     }),
+  // ===== CONFIRMATION MODAL =====
+  confirmationModal: {
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirmar',
+    cancelText: 'Cancelar',
+    variant: 'danger',
+    resolver: null,
+  },
+
+  openConfirmation: (options) => {
+    return new Promise((resolve) => {
+      set({
+        confirmationModal: {
+          isOpen: true,
+          title: options.title,
+          message: options.message,
+          confirmText: options.confirmText || 'Confirmar',
+          cancelText: options.cancelText || 'Cancelar',
+          variant: options.variant || 'danger',
+          resolver: resolve,
+        },
+      });
+    });
+  },
+
+  closeConfirmation: (confirmed) => {
+    const { confirmationModal } = get();
+    if (confirmationModal.resolver) {
+      confirmationModal.resolver(confirmed);
+    }
+    set({
+      confirmationModal: {
+        ...confirmationModal,
+        isOpen: false,
+        resolver: null,
+      },
+    });
+  },
 }));
 
 // ===== SELECTORS =====

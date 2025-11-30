@@ -6,12 +6,14 @@
  */
 
 import { api } from './axios';
-import type { 
-  Product, 
-  ProductFilters, 
+import type {
+  Product,
+  ProductFilters,
   ProductListResponse,
   Category,
-  Brand 
+  Brand,
+  Review,
+  CreateReviewInput
 } from '@/types';
 
 /**
@@ -22,7 +24,7 @@ export const getProducts = async (filters?: ProductFilters): Promise<ProductList
     '/products',
     { params: filters }
   );
-  
+
   return {
     data: response.data.data,
     pagination: response.data.pagination,
@@ -50,5 +52,21 @@ export const getCategories = async (): Promise<Category[]> => {
  */
 export const getBrands = async (): Promise<Brand[]> => {
   const response = await api.get<{ success: boolean; data: Brand[] }>('/products/brands');
+  return response.data.data;
+};
+
+/**
+ * Get product reviews
+ */
+export const getProductReviews = async (productId: number): Promise<Review[]> => {
+  const response = await api.get<{ success: boolean; data: Review[] }>(`/products/${productId}/reviews`);
+  return response.data.data;
+};
+
+/**
+ * Create product review
+ */
+export const createProductReview = async (data: CreateReviewInput): Promise<Review> => {
+  const response = await api.post<{ success: boolean; data: Review }>('/reviews', data);
   return response.data.data;
 };

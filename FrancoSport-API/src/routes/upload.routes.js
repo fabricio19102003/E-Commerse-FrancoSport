@@ -11,7 +11,7 @@ import * as uploadController from '../controllers/upload.controller.js';
 const router = express.Router();
 
 // Apply authentication to all routes
-router.use(authenticate, requireAdmin);
+router.use(authenticate);
 
 // POST /api/upload/image - Upload single image
 router.post('/image', upload.single('image'), uploadController.uploadImage);

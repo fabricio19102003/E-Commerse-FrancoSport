@@ -20,7 +20,6 @@ import {
   Upload,
   X,
   Star,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 // Validation Schema
@@ -117,7 +116,7 @@ const AdminProductForm: React.FC = () => {
       setValue('description', product.description);
       setValue('price', parseFloat(product.price.toString()));
       setValue('compare_at_price', product.compare_at_price ? parseFloat(product.compare_at_price.toString()) : undefined);
-      setValue('cost_price', parseFloat(product.cost_price.toString()));
+      setValue('cost_price', parseFloat((product.cost_price || 0).toString()));
       setValue('sku', product.sku);
       setValue('barcode', product.barcode || '');
       setValue('stock', product.stock);
@@ -241,31 +240,33 @@ const AdminProductForm: React.FC = () => {
       setUploadProgress(10);
 
       // Upload new images to Cloudinary
-      const uploadedImages: any[] = [];
-      let uploadedCount = 0;
-
-      for (const img of images) {
+      // Upload new images to Cloudinary in parallel
+      const uploadPromises = images.map(async (img, index) => {
         if (img.file) {
-          // New image - upload to Cloudinary
-          const uploaded = await uploadImage(img.file);
-          uploadedImages.push({
-            url: uploaded.url,
-            is_primary: img.is_primary,
-            display_order: uploadedImages.length,
-            alt_text: data.name,
-          });
-          uploadedCount++;
-          setUploadProgress(10 + (uploadedCount / images.length) * 50);
+          try {
+            const uploaded = await uploadImage(img.file);
+            setUploadProgress((prev) => Math.min(prev + (50 / images.length), 60));
+            return {
+              url: uploaded.url,
+              is_primary: img.is_primary,
+              display_order: index,
+              alt_text: data.name,
+            };
+          } catch (error) {
+            console.error('Error uploading image:', error);
+            throw new Error(`Error al subir la imagen ${index + 1}`);
+          }
         } else {
-          // Existing image - keep as is
-          uploadedImages.push({
+          return {
             url: img.url,
             is_primary: img.is_primary,
-            display_order: uploadedImages.length,
+            display_order: index,
             alt_text: data.name,
-          });
+          };
         }
-      }
+      });
+
+      const uploadedImages = await Promise.all(uploadPromises);
 
       setUploadProgress(70);
 

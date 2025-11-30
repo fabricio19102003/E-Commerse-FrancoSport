@@ -70,7 +70,7 @@ export const getUsers = async (req, res, next) => {
     // Format response with stats
     const formattedUsers = users.map((user) => {
       const totalSpent = user.orders.reduce(
-        (sum, order) => sum + parseFloat(order.total_amount),
+        (sum, order) => sum + parseFloat(order.total_amount.toString()),
         0
       );
 
@@ -399,7 +399,7 @@ export const getUserStats = async (req, res, next) => {
       select: { total_amount: true },
     });
 
-    const totalRevenue = paidOrders.reduce((sum, order) => sum + parseFloat(order.total_amount), 0);
+    const totalRevenue = paidOrders.reduce((sum, order) => sum + parseFloat(order.total_amount.toString()), 0);
 
     res.json({
       success: true,
