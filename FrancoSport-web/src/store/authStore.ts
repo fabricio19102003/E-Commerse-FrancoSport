@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, LoginCredentials, RegisterData, AuthResponse } from '@/types';
 import { STORAGE_KEYS } from '@/constants/config';
+import * as authService from '@/api/auth.service';
 
 // ===== TYPES =====
 
@@ -26,7 +27,7 @@ interface AuthState {
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   
-  // Auth Actions (estas llamarán al API service cuando lo implementemos)
+  // Auth Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
@@ -76,50 +77,15 @@ export const useAuthStore = create<AuthState>()(
           setLoading(true);
           setError(null);
 
-          // TODO: Reemplazar con llamada real al API cuando esté el service
-          // Simulación temporal
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Llamada real al API
+          const response: AuthResponse = await authService.login(credentials);
 
-          // Simulación de respuesta
-          if (credentials.email === 'admin@franco.com' && credentials.password === '1234') {
-            const mockResponse: AuthResponse = {
-              token: 'mock-jwt-token-admin',
-              user: {
-                id: 1,
-                email: 'admin@franco.com',
-                first_name: 'Pedro',
-                last_name: 'Admin',
-                role: 'ADMIN',
-                email_verified: true,
-                is_active: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            };
+          // Guardar token y usuario
+          setToken(response.token);
+          setUser(response.user);
 
-            setToken(mockResponse.token);
-            setUser(mockResponse.user);
-          } else if (credentials.email === 'user@franco.com' && credentials.password === '1234') {
-            const mockResponse: AuthResponse = {
-              token: 'mock-jwt-token-user',
-              user: {
-                id: 2,
-                email: 'user@franco.com',
-                first_name: 'Cliente',
-                last_name: 'Fiel',
-                role: 'CUSTOMER',
-                email_verified: true,
-                is_active: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            };
-
-            setToken(mockResponse.token);
-            setUser(mockResponse.user);
-          } else {
-            throw new Error('Credenciales inválidas');
-          }
+          // Guardar en localStorage adicional para persistencia
+          localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al iniciar sesión';
           setError(message);
@@ -137,29 +103,15 @@ export const useAuthStore = create<AuthState>()(
           setLoading(true);
           setError(null);
 
-          // TODO: Reemplazar con llamada real al API cuando esté el service
-          // Simulación temporal
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          // Llamada real al API
+          const response: AuthResponse = await authService.register(data);
 
-          // Simulación de respuesta
-          const mockResponse: AuthResponse = {
-            token: 'mock-jwt-token-new-user',
-            user: {
-              id: Date.now(),
-              email: data.email,
-              first_name: data.first_name,
-              last_name: data.last_name,
-              phone: data.phone,
-              role: 'CUSTOMER',
-              email_verified: false,
-              is_active: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-          };
+          // Guardar token y usuario
+          setToken(response.token);
+          setUser(response.user);
 
-          setToken(mockResponse.token);
-          setUser(mockResponse.user);
+          // Guardar en localStorage adicional
+          localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al registrarse';
           setError(message);
@@ -172,8 +124,7 @@ export const useAuthStore = create<AuthState>()(
       // ===== LOGOUT =====
       logout: () => {
         // Limpiar localStorage
-        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        authService.logout();
 
         // Resetear state
         set({
@@ -195,17 +146,17 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: STORAGE_KEYS.AUTH_STORE, // Key en localStorage
+      name: STORAGE_KEYS.AUTH_STORE,
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
-      }), // Solo persistir estos campos
+      }),
     }
   )
 );
 
-// ===== SELECTORS (Helpers para componentes) =====
+// ===== SELECTORS =====
 
 export const useUser = () => useAuthStore((state) => state.user);
 export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);

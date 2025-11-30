@@ -1,14 +1,20 @@
 /**
  * Axios Configuration
  * Franco Sport E-Commerce
- * 
+ *
  * Configuración centralizada de Axios con interceptors
  * para manejo de autenticación, errores y logging
  */
 
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError } from 'axios';
+import type {
+  AxiosInstance,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+  AxiosRequestHeaders,
+} from 'axios';
 import { API_CONFIG, STORAGE_KEYS } from '@/constants/config';
-import { ApiResponse, ApiError } from '@/types';
+import type { ApiResponse, ApiError } from '@/types';
 
 // ===== CREAR INSTANCIA DE AXIOS =====
 
@@ -21,13 +27,18 @@ const axiosInstance: AxiosInstance = axios.create({
 });
 
 // ===== REQUEST INTERCEPTOR =====
-
+// Usamos InternalAxiosRequestConfig para cumplir con la firma interna de Axios
 axiosInstance.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
     // Agregar token JWT si existe
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // Asegurar que headers exista y tenga el tipo esperado
+      if (!config.headers) {
+        config.headers = {} as AxiosRequestHeaders;
+      }
+      // Asignar Authorization de forma segura
+      (config.headers as AxiosRequestHeaders)['Authorization'] = `Bearer ${token}`;
     }
 
     // Log de request en desarrollo
@@ -35,7 +46,8 @@ axiosInstance.interceptors.request.use(
       console.log('📤 Request:', {
         method: config.method?.toUpperCase(),
         url: config.url,
-        data: config.data,
+        // data puede no existir en todas las configuraciones
+        data: (config as any).data,
       });
     }
 
@@ -83,28 +95,28 @@ axiosInstance.interceptors.response.use(
 
         case 403:
           // No tiene permisos
-          console.warn('⛔ Forbidden:', data.message);
+          console.warn('⛔ Forbidden:', (data as any).message);
           break;
 
         case 404:
           // Recurso no encontrado
-          console.warn('🔍 Not Found:', data.message);
+          console.warn('🔍 Not Found:', (data as any).message);
           break;
 
         case 422:
           // Errores de validación
-          console.warn('⚠️ Validation Error:', data.error);
+          console.warn('⚠️ Validation Error:', (data as any).error);
           break;
 
         case 429:
           // Too many requests
-          console.warn('🚫 Rate Limited:', data.message);
+          console.warn('🚫 Rate Limited:', (data as any).message);
           break;
 
         case 500:
         case 503:
           // Error del servidor
-          console.error('💥 Server Error:', data.message);
+          console.error('💥 Server Error:', (data as any).message);
           break;
 
         default:
@@ -126,11 +138,11 @@ axiosInstance.interceptors.response.use(
 
 function handleUnauthorized() {
   console.warn('🔒 Unauthorized: Redirecting to login...');
-  
+
   // Limpiar localStorage
   localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.USER_DATA);
-  
+
   // Redirigir a login (solo si no estamos ya ahí)
   if (!window.location.pathname.includes('/login')) {
     window.location.href = '/login';
@@ -144,14 +156,14 @@ function handleUnauthorized() {
  */
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const apiError = error.response?.data?.error as ApiError | undefined;
+    const apiError = (error.response?.data as any)?.error as ApiError | undefined;
     return apiError?.message || error.message || 'Ha ocurrido un error';
   }
-  
+
   if (error instanceof Error) {
     return error.message;
   }
-  
+
   return 'Ha ocurrido un error desconocido';
 }
 

@@ -18,15 +18,27 @@ import Unauthorized from '@/pages/Unauthorized';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 
+// Admin Pages
+import {
+  AdminLayout,
+  AdminDashboard,
+  AdminProducts,
+  AdminProductForm,
+  AdminOrders,
+  AdminOrderDetail,
+  AdminUsers,
+  AdminCategories,
+  AdminBrands,
+  AdminCoupons,
+  AdminShipping,
+  AdminReviews,
+  AdminSettings,
+} from '@/pages/admin';
+
 // Protected Pages (Placeholder - crearemos después)
 const Profile = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Mi Perfil</h1></div>;
 const Orders = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Mis Pedidos</h1></div>;
 const Wishlist = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Mis Favoritos</h1></div>;
-
-// Admin Pages (Placeholder - crearemos después)
-const AdminDashboard = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Admin Dashboard</h1></div>;
-const AdminProducts = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Admin - Productos</h1></div>;
-const AdminOrders = () => <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-bold text-gradient">Admin - Pedidos</h1></div>;
 
 function App() {
   return (
@@ -42,7 +54,7 @@ function App() {
           },
           success: {
             iconTheme: {
-              primary: '#DC2626',
+              primary: '#10B981',
               secondary: '#FFFFFF',
             },
           },
@@ -110,31 +122,43 @@ function App() {
         </Route>
 
         {/* ===== ADMIN ROUTES (ADMIN ONLY) ===== */}
-        <Route element={<MainLayout />}>
-          <Route
-            path={ROUTES.ADMIN_DASHBOARD}
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path={ROUTES.ADMIN_PRODUCTS}
-            element={
-              <AdminRoute>
-                <AdminProducts />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path={ROUTES.ADMIN_ORDERS}
-            element={
-              <AdminRoute>
-                <AdminOrders />
-              </AdminRoute>
-            }
-          />
+        <Route
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route path={ROUTES.ADMIN} element={<Navigate to={ROUTES.ADMIN_DASHBOARD} replace />} />
+          <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
+          
+          {/* Products */}
+          <Route path={ROUTES.ADMIN_PRODUCTS} element={<AdminProducts />} />
+          <Route path={ROUTES.ADMIN_PRODUCT_CREATE} element={<AdminProductForm />} />
+          <Route path={`${ROUTES.ADMIN_PRODUCTS}/editar/:id`} element={<AdminProductForm />} />
+          
+          {/* Orders */}
+          <Route path={ROUTES.ADMIN_ORDERS} element={<AdminOrders />} />
+          <Route path={`${ROUTES.ADMIN_ORDERS}/:orderNumber`} element={<AdminOrderDetail />} />
+          
+          {/* Users */}
+          <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
+          
+          {/* Categories & Brands */}
+          <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategories />} />
+          <Route path={ROUTES.ADMIN_BRANDS} element={<AdminBrands />} />
+          
+          {/* Coupons */}
+          <Route path={ROUTES.ADMIN_COUPONS} element={<AdminCoupons />} />
+          
+          {/* Shipping */}
+          <Route path={ROUTES.ADMIN_SHIPPING} element={<AdminShipping />} />
+          
+          {/* Reviews */}
+          <Route path={ROUTES.ADMIN_REVIEWS} element={<AdminReviews />} />
+          
+          {/* Settings */}
+          <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
         </Route>
 
         {/* ===== ERROR ROUTES ===== */}

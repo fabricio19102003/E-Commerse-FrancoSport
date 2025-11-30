@@ -1,0 +1,431 @@
+// Franco Sport E-Commerce Database Schema
+// Prisma ORM with MySQL
+// "No es suerte, es esfuerzo"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== USERS & AUTH =====
+
+enum UserRole {
+  ADMIN
+  CUSTOMER
+  MODERATOR
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique @db.VarChar(255)
+  password_hash  String    @db.VarChar(255)
+  first_name     String    @db.VarChar(100)
+  last_name      String    @db.VarChar(100)
+  phone          String?   @db.VarChar(20)
+  role           UserRole  @default(CUSTOMER)
+  email_verified Boolean   @default(false)
+  is_active      Boolean   @default(true)
+  last_login     DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  // Relations
+  addresses      Address[]
+  carts          Cart[]
+  orders         Order[]
+  reviews        Review[]
+  wishlist_items WishlistItem[]
+
+  @@map("users")
+}
+
+model Address {
+  id             Int      @id @default(autoincrement())
+  user_id        Int
+  address_type   String   @db.VarChar(20) // SHIPPING, BILLING
+  full_name      String   @db.VarChar(200)
+  street_address String   @db.VarChar(255)
+  city           String   @db.VarChar(100)
+  state          String   @db.VarChar(100)
+  postal_code    String   @db.VarChar(20)
+  country        String   @db.VarChar(100)
+  phone          String   @db.VarChar(20)
+  is_default     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  user   User    @relation(fields: [user_id], references: [id])
+  orders Order[]
+
+  @@map("addresses")
+}
+
+// ===== PRODUCTS =====
+
+model Category {
+  id             Int        @id @default(autoincrement())
+  name           String     @db.VarChar(100)
+  slug           String     @unique @db.VarChar(100)
+  description    String?    @db.Text
+  image_url      String?    @db.VarChar(255)
+  parent_id      Int?
+  display_order  Int        @default(0)
+  is_active      Boolean    @default(true)
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  // Relations
+  parent   Category?  @relation("CategoryToCategory", fields: [parent_id], references: [id])
+  children Category[] @relation("CategoryToCategory")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  slug        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  logo_url    String?   @db.VarChar(255)
+  website_url String?   @db.VarChar(255)
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  // Relations
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id                  Int       @id @default(autoincrement())
+  name                String    @db.VarChar(255)
+  slug                String    @unique @db.VarChar(255)
+  short_description   String?   @db.VarChar(500)
+  description         String    @db.Text
+  price               Decimal   @db.Decimal(10, 2)
+  compare_at_price    Decimal?  @db.Decimal(10, 2)
+  cost_price          Decimal?  @db.Decimal(10, 2)
+  sku                 String    @unique @db.VarChar(100)
+  barcode             String?   @db.VarChar(100)
+  stock               Int       @default(0)
+  low_stock_threshold Int       @default(10)
+  weight              Decimal   @db.Decimal(10, 2)
+  category_id         Int
+  brand_id            Int
+  is_featured         Boolean   @default(false)
+  is_active           Boolean   @default(true)
+  meta_title          String?   @db.VarChar(255)
+  meta_description    String?   @db.VarChar(500)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  category       Category       @relation(fields: [category_id], references: [id])
+  brand          Brand          @relation(fields: [brand_id], references: [id])
+  images         ProductImage[]
+  variants       ProductVariant[]
+  tags           ProductTag[]
+  reviews        Review[]
+  cart_items     CartItem[]
+  order_items    OrderItem[]
+  wishlist_items WishlistItem[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id            Int      @id @default(autoincrement())
+  product_id    Int
+  url           String   @db.VarChar(255)
+  alt_text      String?  @db.VarChar(255)
+  is_primary    Boolean  @default(false)
+  display_order Int      @default(0)
+  created_at    DateTime @default(now())
+
+  // Relations
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id           Int      @id @default(autoincrement())
+  product_id   Int
+  variant_name String   @db.VarChar(100)
+  sku          String   @unique @db.VarChar(100)
+  price        Decimal? @db.Decimal(10, 2)
+  stock        Int      @default(0)
+  attributes   Json // { size: 'M', color: 'Red' }
+  image_url    String?  @db.VarChar(255)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  product    Product     @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  cart_items CartItem[]
+  order_items OrderItem[]
+
+  @@map("product_variants")
+}
+
+model Tag {
+  id         Int          @id @default(autoincrement())
+  name       String       @db.VarChar(100)
+  slug       String       @unique @db.VarChar(100)
+  created_at DateTime     @default(now())
+
+  // Relations
+  products ProductTag[]
+
+  @@map("tags")
+}
+
+model ProductTag {
+  product_id Int
+  tag_id     Int
+
+  // Relations
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([product_id, tag_id])
+  @@map("product_tags")
+}
+
+// ===== CART =====
+
+model Cart {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+  session_id String?  @db.VarChar(255)
+  expires_at DateTime?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  user  User?      @relation(fields: [user_id], references: [id])
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id           Int      @id @default(autoincrement())
+  cart_id      Int
+  product_id   Int
+  variant_id   Int?
+  quantity     Int      @default(1)
+  price_at_add Decimal  @db.Decimal(10, 2)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  cart    Cart            @relation(fields: [cart_id], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [product_id], references: [id])
+  variant ProductVariant? @relation(fields: [variant_id], references: [id])
+
+  @@map("cart_items")
+}
+
+// ===== ORDERS =====
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id                  Int           @id @default(autoincrement())
+  order_number        String        @unique @db.VarChar(50)
+  user_id             Int
+  status              OrderStatus   @default(PENDING)
+  payment_status      PaymentStatus @default(PENDING)
+  payment_method      String        @db.VarChar(50)
+  payment_id          String?       @db.VarChar(255)
+  subtotal            Decimal       @db.Decimal(10, 2)
+  shipping_cost       Decimal       @db.Decimal(10, 2)
+  tax_amount          Decimal       @db.Decimal(10, 2)
+  discount_amount     Decimal       @default(0) @db.Decimal(10, 2)
+  total_amount        Decimal       @db.Decimal(10, 2)
+  shipping_address_id Int
+  shipping_method_id  Int
+  tracking_number     String?       @db.VarChar(100)
+  coupon_id           Int?
+  notes               String?       @db.Text
+  admin_notes         String?       @db.Text
+  cancelled_at        DateTime?
+  cancelled_reason    String?       @db.Text
+  shipped_at          DateTime?
+  delivered_at        DateTime?
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+
+  // Relations
+  user             User                @relation(fields: [user_id], references: [id])
+  shipping_address Address             @relation(fields: [shipping_address_id], references: [id])
+  shipping_method  ShippingMethod      @relation(fields: [shipping_method_id], references: [id])
+  coupon           Coupon?             @relation(fields: [coupon_id], references: [id])
+  items            OrderItem[]
+  status_history   OrderStatusHistory[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                Int      @id @default(autoincrement())
+  order_id          Int
+  product_id        Int
+  variant_id        Int?
+  product_name      String   @db.VarChar(255)
+  variant_name      String?  @db.VarChar(100)
+  quantity          Int
+  price_at_purchase Decimal  @db.Decimal(10, 2)
+  subtotal          Decimal  @db.Decimal(10, 2)
+  created_at        DateTime @default(now())
+
+  // Relations
+  order   Order           @relation(fields: [order_id], references: [id])
+  product Product         @relation(fields: [product_id], references: [id])
+  variant ProductVariant? @relation(fields: [variant_id], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id         Int         @id @default(autoincrement())
+  order_id   Int
+  status     OrderStatus
+  notes      String?     @db.Text
+  created_by Int?
+  created_at DateTime    @default(now())
+
+  // Relations
+  order Order @relation(fields: [order_id], references: [id])
+
+  @@map("order_status_history")
+}
+
+// ===== SHIPPING =====
+
+model ShippingZone {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  countries  Json // Array of country codes
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  shipping_methods ShippingMethod[]
+
+  @@map("shipping_zones")
+}
+
+model ShippingMethod {
+  id                  Int      @id @default(autoincrement())
+  name                String   @db.VarChar(100)
+  description         String?  @db.Text
+  base_cost           Decimal  @db.Decimal(10, 2)
+  cost_per_kg         Decimal  @db.Decimal(10, 2)
+  estimated_days_min  Int
+  estimated_days_max  Int
+  is_active           Boolean  @default(true)
+  shipping_zone_id    Int
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  // Relations
+  shipping_zone ShippingZone @relation(fields: [shipping_zone_id], references: [id])
+  orders        Order[]
+
+  @@map("shipping_methods")
+}
+
+// ===== COUPONS =====
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+model Coupon {
+  id                      Int          @id @default(autoincrement())
+  code                    String       @unique @db.VarChar(50)
+  description             String       @db.Text
+  discount_type           DiscountType
+  discount_value          Decimal      @db.Decimal(10, 2)
+  minimum_purchase_amount Decimal?     @db.Decimal(10, 2)
+  maximum_discount_amount Decimal?     @db.Decimal(10, 2)
+  usage_limit_total       Int?
+  usage_limit_per_user    Int?
+  times_used              Int          @default(0)
+  starts_at               DateTime
+  expires_at              DateTime
+  is_active               Boolean      @default(true)
+  created_at              DateTime     @default(now())
+  updated_at              DateTime     @updatedAt
+
+  // Relations
+  orders Order[]
+
+  @@map("coupons")
+}
+
+// ===== REVIEWS =====
+
+model Review {
+  id                   Int      @id @default(autoincrement())
+  product_id           Int
+  user_id              Int
+  rating               Int // 1-5
+  title                String?  @db.VarChar(200)
+  comment              String   @db.Text
+  is_verified_purchase Boolean  @default(false)
+  is_approved          Boolean  @default(false)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  // Relations
+  product Product @relation(fields: [product_id], references: [id])
+  user    User    @relation(fields: [user_id], references: [id])
+
+  @@map("reviews")
+}
+
+// ===== WISHLIST =====
+
+model WishlistItem {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  product_id Int
+  created_at DateTime @default(now())
+
+  // Relations
+  user    User    @relation(fields: [user_id], references: [id])
+  product Product @relation(fields: [product_id], references: [id])
+
+  @@unique([user_id, product_id])
+  @@map("wishlist_items")
+}
