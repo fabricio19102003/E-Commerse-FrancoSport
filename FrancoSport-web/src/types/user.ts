@@ -23,6 +23,7 @@ export interface User {
   last_name: string;
   phone?: string;
   role: UserRole;
+  loyalty_points: number;
   email_verified: boolean;
   is_active: boolean;
   last_login?: string;
@@ -83,6 +84,7 @@ export interface RegisterData {
 
 export interface AuthResponse {
   token: string;
+  refreshToken?: string;
   user: User;
 }
 

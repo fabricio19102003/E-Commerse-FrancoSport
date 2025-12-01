@@ -1,25 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
-import { Button, Card, CardContent, Badge } from '@/components/ui';
+import { Button, Card, CardContent } from '@/components/ui';
 import {
-  ShoppingCart,
   TrendingUp,
   Zap,
-  Truck,
   Shield,
   Star,
   Trophy,
-  Clock,
   ArrowRight,
   ShoppingBag,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
+import { useExperiment } from '@/hooks/useExperiment';
+import { getCategories } from '@/api/products.service';
+import type { Category } from '@/types';
+import { getActivePromotion } from '@/api/promotions.service';
+import type { Promotion } from '@/api/admin/promotions.service';
+
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
-  const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 59, seconds: 59 });
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [activePromotion, setActivePromotion] = useState<Promotion | null>(null);
+  
+  // A/B Test: Hero CTA Text
+  const heroCtaText = useExperiment('hero_cta_text', ['Ver Catálogo', 'Ofertas Exclusivas']);
 
   // Auto-slide del hero
   useEffect(() => {
@@ -29,17 +36,62 @@ const Home: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch Active Promotion
+  useEffect(() => {
+    const fetchPromotion = async () => {
+      try {
+        const promo = await getActivePromotion();
+        setActivePromotion(promo);
+      } catch (err) {
+        console.error('Error fetching active promotion:', err);
+      }
+    };
+    fetchPromotion();
+  }, []);
+
   // Countdown timer
   useEffect(() => {
+    if (!activePromotion) return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const end = new Date(activePromotion.end_date).getTime();
+      const distance = end - now;
+
+      if (distance < 0) {
+        return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+      }
+
+      // Calculate total time
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      return { days, hours, minutes, seconds };
+    };
+
+    setTimeLeft(calculateTimeLeft());
+
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return prev;
-      });
+      setTimeLeft(calculateTimeLeft());
     }, 1000);
+
     return () => clearInterval(timer);
+  }, [activePromotion]);
+
+  // Fetch Categories
+  const [categories, setCategories] = useState<Category[]>([]);
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const data = await getCategories();
+        setCategories(data.filter(c => c.is_active));
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+    fetchCats();
   }, []);
 
   const partners = [
@@ -99,7 +151,7 @@ const Home: React.FC = () => {
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent z-10" />
           <img
-            src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=2000"
+            src={activePromotion?.image_url || "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=2000"}
             alt="Franco Sport Hero"
             className={`w-full h-full object-cover transition-transform duration-[15000ms] ease-linear ${
               activeHeroSlide === 0 ? 'scale-110' : 'scale-100'
@@ -141,7 +193,7 @@ const Home: React.FC = () => {
                   <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                 }
               >
-                Ver Catálogo
+                {heroCtaText}
               </Button>
               <Button size="lg" variant="outline" className="backdrop-blur-sm">
                 Personalizar
@@ -150,17 +202,129 @@ const Home: React.FC = () => {
           </div>
         </Container>
 
-        {/* Countdown Timer */}
-        <div className="absolute bottom-8 right-8 z-20 hidden lg:flex items-center gap-3 bg-surface/80 backdrop-blur-md px-6 py-3 rounded-lg border border-primary/20">
-          <Clock size={20} className="text-primary animate-pulse" />
-          <span className="text-sm font-bold uppercase text-text-secondary">Oferta Termina en:</span>
-          <div className="flex gap-2 font-mono text-primary">
-            <span>{String(timeLeft.hours).padStart(2, '0')}h</span>:
-            <span>{String(timeLeft.minutes).padStart(2, '0')}m</span>:
-            <span>{String(timeLeft.seconds).padStart(2, '0')}s</span>
+        {/* Promotion Banner Bar */}
+        {activePromotion && (
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/40 backdrop-blur-md border-t border-white/10 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-purple-500/20 to-primary/20 animate-pulse" />
+            <Container>
+              <div className="relative flex flex-col md:flex-row items-center justify-between py-4 gap-4">
+                {/* Left: Title & Description */}
+                <div className="flex items-center gap-4">
+                  <div className="bg-primary text-black font-black text-xs px-2 py-1 uppercase tracking-wider transform -skew-x-12">
+                    Oferta Especial
+                  </div>
+                  <div className="flex flex-col">
+                    <h3 className="text-xl md:text-2xl font-black italic uppercase text-white leading-none">
+                      {activePromotion.title}
+                    </h3>
+                    {activePromotion.description && (
+                      <p className="text-sm text-gray-300 hidden md:block">
+                        {activePromotion.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Countdown & CTA */}
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4 bg-black/30 px-4 py-2 rounded-lg border border-white/10">
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl font-bold font-mono text-primary leading-none">
+                        {String(timeLeft.days).padStart(2, '0')}
+                      </span>
+                      <span className="text-[10px] text-gray-400 uppercase">Días</span>
+                    </div>
+                    <span className="text-xl font-bold text-gray-600">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl font-bold font-mono text-primary leading-none">
+                        {String(timeLeft.hours).padStart(2, '0')}
+                      </span>
+                      <span className="text-[10px] text-gray-400 uppercase">Horas</span>
+                    </div>
+                    <span className="text-xl font-bold text-gray-600">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl font-bold font-mono text-primary leading-none">
+                        {String(timeLeft.minutes).padStart(2, '0')}
+                      </span>
+                      <span className="text-[10px] text-gray-400 uppercase">Min</span>
+                    </div>
+                    <span className="text-xl font-bold text-gray-600">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl font-bold font-mono text-primary leading-none">
+                        {String(timeLeft.seconds).padStart(2, '0')}
+                      </span>
+                      <span className="text-[10px] text-gray-400 uppercase">Seg</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    size="sm" 
+                    onClick={() => navigate(ROUTES.PRODUCTS)}
+                    className="whitespace-nowrap shadow-lg shadow-primary/20"
+                  >
+                    Ver Oferta <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </Container>
           </div>
-        </div>
+        )}
       </header>
+
+      {/* CATEGORIES SECTION */}
+      <section className="py-16 bg-background relative z-10">
+        <Container>
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-black italic uppercase mb-2">
+                Explora por <span className="text-primary">Categorías</span>
+              </h2>
+              <div className="h-1 w-24 bg-primary" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {categories.map((category) => (
+              <div 
+                key={category.id} 
+                className="group cursor-pointer relative overflow-hidden rounded-2xl aspect-[3/4] border border-white/10 hover:border-primary/50 transition-all duration-500 shadow-2xl hover:shadow-primary/20"
+                onClick={() => navigate(`${ROUTES.PRODUCTS}?category=${category.slug}`)}
+              >
+                {/* Image with Zoom Effect */}
+                <div className="absolute inset-0 overflow-hidden">
+                  <img 
+                    src={category.image_url || 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=800'} 
+                    alt={category.name}
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 group-hover:rotate-1"
+                  />
+                </div>
+
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+                
+                {/* Content */}
+                <div className="absolute inset-0 flex flex-col justify-end p-6">
+                  <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                    <div className="h-1 w-12 bg-primary mb-4 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+                    
+                    <h3 className="text-3xl font-black uppercase italic text-white mb-2 leading-none tracking-tighter">
+                      {category.name}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                      <span>Explorar Colección</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Shine Effect */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+              </div>
+            ))}
+          </div>
+        </Container>
+      </section>
 
       {/* PRODUCTOS DESTACADOS - Los Más Buscados */}
       <section className="py-24 bg-background relative z-10">

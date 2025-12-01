@@ -26,7 +26,7 @@ interface AuthState {
   setToken: (token: string | null) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-  
+
   // Auth Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -82,6 +82,9 @@ export const useAuthStore = create<AuthState>()(
 
           // Guardar token y usuario
           setToken(response.token);
+          if (response.refreshToken) {
+            localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refreshToken);
+          }
           setUser(response.user);
 
           // Guardar en localStorage adicional para persistencia
@@ -108,6 +111,9 @@ export const useAuthStore = create<AuthState>()(
 
           // Guardar token y usuario
           setToken(response.token);
+          if (response.refreshToken) {
+            localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refreshToken);
+          }
           setUser(response.user);
 
           // Guardar en localStorage adicional

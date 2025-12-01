@@ -122,14 +122,20 @@ export const createBrand = async (req, res, next) => {
       });
     }
 
+    // Handle image upload
+    let finalLogoUrl = logo_url;
+    if (req.file) {
+      finalLogoUrl = req.file.path;
+    }
+
     const brand = await prisma.brand.create({
       data: {
         name,
         slug,
         description,
-        logo_url,
+        logo_url: finalLogoUrl,
         website_url,
-        is_active: is_active === true
+        is_active: is_active === 'true' || is_active === true
       }
     });
 
@@ -191,15 +197,21 @@ export const updateBrand = async (req, res, next) => {
       }
     }
 
+    // Handle image upload
+    let finalLogoUrl = logo_url;
+    if (req.file) {
+      finalLogoUrl = req.file.path;
+    }
+
     const brand = await prisma.brand.update({
       where: { id: parseInt(id) },
       data: {
         name,
         slug,
         description,
-        logo_url,
+        logo_url: finalLogoUrl,
         website_url,
-        is_active: is_active !== undefined ? is_active : undefined
+        is_active: is_active !== undefined ? (is_active === 'true' || is_active === true) : undefined
       }
     });
 

@@ -228,6 +228,28 @@ export const updateOrderStatus = async (req, res, next) => {
       },
     });
 
+    // Award Loyalty Points if DELIVERED
+    if (status === 'DELIVERED' && order.status !== 'DELIVERED') {
+      const pointsToAward = Math.floor(Number(order.total_amount)); // 1 point per $1
+      
+      if (pointsToAward > 0) {
+        await prisma.user.update({
+          where: { id: order.user_id },
+          data: { loyalty_points: { increment: pointsToAward } },
+        });
+
+        await prisma.loyaltyTransaction.create({
+          data: {
+            user_id: order.user_id,
+            order_id: order.id,
+            points: pointsToAward,
+            type: 'EARNED',
+            description: `Puntos ganados por pedido #${order.order_number}`,
+          },
+        });
+      }
+    }
+
     // TODO: Send email notification to customer
 
     res.json({

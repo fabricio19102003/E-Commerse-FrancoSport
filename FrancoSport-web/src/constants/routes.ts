@@ -12,7 +12,7 @@ export const ROUTES = {
   CATEGORY: '/categoria/:slug',
   BRANDS: '/marcas',
   BRAND: '/marca/:slug',
-  
+
   // ===== Cart & Checkout =====
   CART: '/carrito',
   CHECKOUT: '/checkout',
@@ -40,11 +40,13 @@ export const ROUTES = {
   ADMIN_ORDERS: '/admin/pedidos',
   ADMIN_ORDER_DETAIL: '/admin/pedidos/:id',
   ADMIN_USERS: '/admin/usuarios',
+  ADMIN_PROMOTIONS: '/admin/promociones',
   ADMIN_COUPONS: '/admin/cupones',
   ADMIN_CATEGORIES: '/admin/categorias',
   ADMIN_BRANDS: '/admin/marcas',
   ADMIN_SHIPPING: '/admin/envios',
   ADMIN_REVIEWS: '/admin/resenas',
+  ADMIN_CHAT: '/admin/chat',
   ADMIN_SETTINGS: '/admin/configuracion',
   ADMIN_LOGS: '/admin/logs',
 

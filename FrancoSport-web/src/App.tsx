@@ -1,7 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { HelmetProvider } from 'react-helmet-async';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { ROUTES } from '@/constants/routes';
+import { useAuthStore } from '@/store';
+import { initGA, logPageView } from '@/api/analytics.service';
 
 // Layouts
 import MainLayout from '@/components/layout/MainLayout';
@@ -42,159 +46,189 @@ import {
   AdminShipping,
   AdminReviews,
   AdminSettings,
+  AdminChat,
+  AdminPromotions,
 } from '@/pages/admin';
+
+import ChatWidget from '@/components/chat/ChatWidget';
 
 // Protected Pages// Placeholder components for routes not yet implemented
 
 
+const RouteChangeTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    logPageView();
+  }, [location]);
+
+  return null;
+};
+
 function App() {
+  const { isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    initGA();
+  }, [isAuthenticated]);
+
   return (
-    <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#1A1A1A',
-            color: '#FFFFFF',
-            border: '1px solid #252525',
-          },
-          success: {
-            iconTheme: {
-              primary: '#10B981',
-              secondary: '#FFFFFF',
+    <HelmetProvider>
+      <BrowserRouter>
+        <RouteChangeTracker />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#1A1A1A',
+              color: '#FFFFFF',
+              border: '1px solid #252525',
             },
-          },
-          error: {
-            iconTheme: {
-              primary: '#EF4444',
-              secondary: '#FFFFFF',
+            success: {
+              iconTheme: {
+                primary: '#10B981',
+                secondary: '#FFFFFF',
+              },
             },
-          },
-        }}
-      />
-      <ConfirmationModal />
-
-      <Routes>
-        {/* ===== PUBLIC ROUTES WITH LAYOUT ===== */}
-        <Route element={<MainLayout />}>
-          <Route path={ROUTES.HOME} element={<Home />} />
-          <Route path={ROUTES.PRODUCTS} element={<Products />} />
-          <Route path={ROUTES.PRODUCT_DETAIL} element={<ProductDetail />} />
-          <Route path={ROUTES.CATEGORIES} element={<Categories />} />
-          <Route path={ROUTES.BRANDS} element={<Brands />} />
-          {/* TODO: Agregar más rutas públicas aquí */}
-        </Route>
-
-        {/* ===== AUTH ROUTES (GUEST ONLY) ===== */}
-        <Route
-          path={ROUTES.LOGIN}
-          element={
-            <GuestRoute>
-              <Login />
-            </GuestRoute>
-          }
+            error: {
+              iconTheme: {
+                primary: '#EF4444',
+                secondary: '#FFFFFF',
+              },
+            },
+          }}
         />
-        <Route
-          path={ROUTES.REGISTER}
-          element={
-            <GuestRoute>
-              <Register />
-            </GuestRoute>
-          }
-        />
+        <ConfirmationModal />
+        <ChatWidget />
 
-        {/* ===== PROTECTED ROUTES (AUTHENTICATED USERS) ===== */}
-        <Route element={<MainLayout />}>
-          <Route path={ROUTES.CART} element={<Cart />} />
-          <Route
-            path={ROUTES.CHECKOUT}
-            element={
-              <ProtectedRoute>
-                <Checkout />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.PROFILE}
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.ORDER_DETAIL}
-            element={
-              <ProtectedRoute>
-                <OrderDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.ORDERS}
-            element={
-              <ProtectedRoute>
-                <Navigate to={`${ROUTES.PROFILE}?tab=orders`} replace />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.WISHLIST}
-            element={
-              <ProtectedRoute>
-                <Wishlist />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
+        <Routes>
+          {/* ===== PUBLIC ROUTES WITH LAYOUT ===== */}
+          <Route element={<MainLayout />}>
+            <Route path={ROUTES.HOME} element={<Home />} />
+            <Route path={ROUTES.PRODUCTS} element={<Products />} />
+            <Route path={ROUTES.PRODUCT_DETAIL} element={<ProductDetail />} />
+            <Route path={ROUTES.CATEGORIES} element={<Categories />} />
+            <Route path={ROUTES.BRANDS} element={<Brands />} />
+            {/* TODO: Agregar más rutas públicas aquí */}
+          </Route>
 
-        {/* ===== ADMIN ROUTES (ADMIN ONLY) ===== */}
-        <Route
-          element={
-            <AdminRoute>
-              <AdminLayout />
-            </AdminRoute>
-          }
-        >
-          <Route path={ROUTES.ADMIN} element={<Navigate to={ROUTES.ADMIN_DASHBOARD} replace />} />
-          <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
-          
-          {/* Products */}
-          <Route path={ROUTES.ADMIN_PRODUCTS} element={<AdminProducts />} />
-          <Route path={ROUTES.ADMIN_PRODUCT_CREATE} element={<AdminProductForm />} />
-          <Route path={`${ROUTES.ADMIN_PRODUCTS}/editar/:id`} element={<AdminProductForm />} />
-          
-          {/* Orders */}
-          <Route path={ROUTES.ADMIN_ORDERS} element={<AdminOrders />} />
-          <Route path={`${ROUTES.ADMIN_ORDERS}/:orderNumber`} element={<AdminOrderDetail />} />
-          
-          {/* Users */}
-          <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
-          
-          {/* Categories & Brands */}
-          <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategories />} />
-          <Route path={ROUTES.ADMIN_BRANDS} element={<AdminBrands />} />
-          
-          {/* Coupons */}
-          <Route path={ROUTES.ADMIN_COUPONS} element={<AdminCoupons />} />
-          
-          {/* Shipping */}
-          <Route path={ROUTES.ADMIN_SHIPPING} element={<AdminShipping />} />
-          
-          {/* Reviews */}
-          <Route path={ROUTES.ADMIN_REVIEWS} element={<AdminReviews />} />
-          
-          {/* Settings */}
-          <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
-        </Route>
+          {/* ===== AUTH ROUTES (GUEST ONLY) ===== */}
+          <Route
+            path={ROUTES.LOGIN}
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path={ROUTES.REGISTER}
+            element={
+              <GuestRoute>
+                <Register />
+              </GuestRoute>
+            }
+          />
 
-        {/* ===== ERROR ROUTES ===== */}
-        <Route path={ROUTES.UNAUTHORIZED} element={<Unauthorized />} />
-        <Route path={ROUTES.NOT_FOUND} element={<NotFound />} />
-        <Route path="*" element={<Navigate to={ROUTES.NOT_FOUND} replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* ===== PROTECTED ROUTES (AUTHENTICATED USERS) ===== */}
+          <Route element={<MainLayout />}>
+            <Route path={ROUTES.CART} element={<Cart />} />
+            <Route
+              path={ROUTES.CHECKOUT}
+              element={
+                <ProtectedRoute>
+                  <Checkout />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.PROFILE}
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ORDER_DETAIL}
+              element={
+                <ProtectedRoute>
+                  <OrderDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ORDERS}
+              element={
+                <ProtectedRoute>
+                  <Navigate to={`${ROUTES.PROFILE}?tab=orders`} replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.WISHLIST}
+              element={
+                <ProtectedRoute>
+                  <Wishlist />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          {/* ===== ADMIN ROUTES (ADMIN ONLY) ===== */}
+          <Route
+            element={
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            }
+          >
+            <Route path={ROUTES.ADMIN} element={<Navigate to={ROUTES.ADMIN_DASHBOARD} replace />} />
+            <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
+            
+            {/* Products */}
+            <Route path={ROUTES.ADMIN_PRODUCTS} element={<AdminProducts />} />
+            <Route path={ROUTES.ADMIN_PRODUCT_CREATE} element={<AdminProductForm />} />
+            <Route path={`${ROUTES.ADMIN_PRODUCTS}/editar/:id`} element={<AdminProductForm />} />
+            
+            {/* Orders */}
+            <Route path={ROUTES.ADMIN_ORDERS} element={<AdminOrders />} />
+            <Route path={`${ROUTES.ADMIN_ORDERS}/:orderNumber`} element={<AdminOrderDetail />} />
+            
+            {/* Users */}
+            <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
+            
+            {/* Categories & Brands */}
+            <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategories />} />
+            <Route path={ROUTES.ADMIN_BRANDS} element={<AdminBrands />} />
+            
+            {/* Coupons */}
+            <Route path={ROUTES.ADMIN_COUPONS} element={<AdminCoupons />} />
+
+            {/* Promotions */}
+            <Route path={ROUTES.ADMIN_PROMOTIONS} element={<AdminPromotions />} />
+            
+            {/* Shipping */}
+            <Route path={ROUTES.ADMIN_SHIPPING} element={<AdminShipping />} />
+            
+            {/* Reviews */}
+            <Route path={ROUTES.ADMIN_REVIEWS} element={<AdminReviews />} />
+
+            {/* Chat */}
+            <Route path={ROUTES.ADMIN_CHAT} element={<AdminChat />} />
+            
+            {/* Settings */}
+            <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
+          </Route>
+
+          {/* ===== ERROR ROUTES ===== */}
+          <Route path={ROUTES.UNAUTHORIZED} element={<Unauthorized />} />
+          <Route path={ROUTES.NOT_FOUND} element={<NotFound />} />
+          <Route path="*" element={<Navigate to={ROUTES.NOT_FOUND} replace />} />
+        </Routes>
+      </BrowserRouter>
+    </HelmetProvider>
   );
 }
 

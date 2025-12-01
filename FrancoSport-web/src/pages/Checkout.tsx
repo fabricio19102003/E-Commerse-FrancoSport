@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
-import { Loader2, Check, CreditCard, Truck, MapPin, QrCode, Upload, X } from 'lucide-react';
+import { Loader2, Check, CreditCard, Truck, MapPin, QrCode, Upload, X, Award } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/store';
 import { getAddresses, createAddress } from '@/api/users.service';
 import { createOrder } from '@/api/orders.service';
@@ -10,6 +10,7 @@ import { uploadImage } from '@/api/upload.service';
 import { ROUTES } from '@/constants/routes';
 import type { Address } from '@/types';
 import toast from 'react-hot-toast';
+import { logBeginCheckout, logPurchase } from '@/api/analytics.service';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
@@ -26,6 +27,11 @@ const Checkout: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'QR_TRANSFER'>('CASH_ON_DELIVERY');
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
+
+  // Loyalty Points
+  const [redeemPoints, setRedeemPoints] = useState(0);
+  const pointsValue = redeemPoints / 100; // 100 points = $1
+  const maxRedeemablePoints = user ? Math.min(user.loyalty_points, Math.floor(subtotal * 100)) : 0;
 
   // New Address Form
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -55,6 +61,9 @@ const Checkout: React.FC = () => {
     if (user) {
       setNewAddress((prev: any) => ({ ...prev, full_name: `${user.first_name} ${user.last_name}` }));
     }
+
+    // Track begin_checkout
+    logBeginCheckout(items, subtotal);
 
     loadAddresses();
   }, [isAuthenticated, items, navigate, user]);
@@ -141,11 +150,15 @@ const Checkout: React.FC = () => {
         shipping_address_id: selectedAddressId,
         payment_method: paymentMethod === 'QR_TRANSFER' ? 'BANK_TRANSFER' : 'CASH_ON_DELIVERY',
         shipping_method_id: 1, // Hardcoded for now
-        payment_proof_url: paymentProofUrl || undefined
+        payment_proof_url: paymentProofUrl || undefined,
+        redeem_points: redeemPoints > 0 ? redeemPoints : undefined
       };
 
-      await createOrder(orderData);
+      const newOrder = await createOrder(orderData);
       
+      // Track purchase
+      logPurchase(newOrder.id.toString(), items, subtotal - pointsValue);
+
       clearCart();
       toast.success('¡Pedido realizado con éxito!');
       navigate(ROUTES.HOME); // Ideally redirect to order success page
@@ -492,9 +505,46 @@ const Checkout: React.FC = () => {
                     <span>Envío</span>
                     <span>$0.00</span>
                   </div>
+                  
+                  {/* Loyalty Points Redemption */}
+                  {user && user.loyalty_points > 0 && (
+                    <div className="py-4 border-t border-b border-border my-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Award className="w-4 h-4 text-yellow-500" />
+                        <span className="font-bold text-sm">Canjear Puntos</span>
+                      </div>
+                      <p className="text-xs text-text-secondary mb-2">
+                        Tienes {user.loyalty_points} puntos. 
+                        {maxRedeemablePoints < user.loyalty_points && " (Máximo canjeable por el total)"}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max={maxRedeemablePoints} 
+                          step="100"
+                          value={redeemPoints}
+                          onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                          className="w-full accent-primary"
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs mt-1">
+                        <span>0</span>
+                        <span className="font-bold text-primary">{redeemPoints} pts (-${pointsValue.toFixed(2)})</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {redeemPoints > 0 && (
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Descuento (Puntos)</span>
+                      <span>-${pointsValue.toFixed(2)}</span>
+                    </div>
+                  )}
+
                   <div className="border-t border-border pt-2 flex justify-between font-bold text-lg text-primary">
                     <span>Total</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>${(subtotal - pointsValue).toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="text-xs text-text-tertiary text-center">

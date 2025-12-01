@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
-import { Card } from '@/components/ui';
-import { Loader2, ShoppingBag } from 'lucide-react';
+import { Loader2, ArrowRight } from 'lucide-react';
 import { getCategories } from '@/api/products.service';
 import type { Category } from '@/types';
 import { ROUTES } from '@/constants/routes';
 
 const Categories: React.FC = () => {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,43 +45,50 @@ const Categories: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {categories.map((category) => (
-            <Link 
+            <div 
               key={category.id} 
-              to={`${ROUTES.PRODUCTS}?category=${category.id}`}
-              className="group"
+              className="group cursor-pointer relative overflow-hidden rounded-2xl aspect-[3/4] border border-white/10 hover:border-primary/50 transition-all duration-500 shadow-2xl hover:shadow-primary/20"
+              onClick={() => navigate(`${ROUTES.PRODUCTS}?category=${category.slug}`)}
             >
-              <Card hoverable className="h-full overflow-hidden flex flex-col">
-                <div className="aspect-[4/3] relative overflow-hidden bg-surface-light">
-                  {category.image_url ? (
-                    <img
-                      src={category.image_url}
-                      alt={category.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-text-tertiary">
-                      <ShoppingBag className="w-12 h-12 opacity-20" />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-                  <div className="absolute bottom-4 left-4 text-white">
-                    <p className="text-sm font-medium opacity-90">{category.products_count || 0} productos</p>
-                  </div>
-                </div>
-                <div className="p-6 flex-1 flex flex-col items-center justify-center text-center">
-                  <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
+              {/* Image with Zoom Effect */}
+              <div className="absolute inset-0 overflow-hidden">
+                <img 
+                  src={category.image_url || 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=800'} 
+                  alt={category.name}
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 group-hover:rotate-1"
+                />
+              </div>
+
+              {/* Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
+              
+              {/* Content */}
+              <div className="absolute inset-0 flex flex-col justify-end p-6">
+                <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                  <div className="h-1 w-12 bg-primary mb-4 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+                  
+                  <h3 className="text-3xl font-black uppercase italic text-white mb-2 leading-none tracking-tighter">
                     {category.name}
                   </h3>
+                  
                   {category.description && (
-                    <p className="text-sm text-text-secondary line-clamp-2">
+                    <p className="text-sm text-neutral-300 mb-4 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-75">
                       {category.description}
                     </p>
                   )}
+                  
+                  <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                    <span>Explorar Colección</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
                 </div>
-              </Card>
-            </Link>
+              </div>
+
+              {/* Shine Effect */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+            </div>
           ))}
         </div>
       </Container>

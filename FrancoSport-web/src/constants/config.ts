@@ -66,6 +66,7 @@ export const PAGINATION = {
 // ===== Local Storage Keys =====
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'francosport_auth_token',
+  REFRESH_TOKEN: 'francosport_refresh_token',
   USER_DATA: 'francosport_user_data',
   AUTH_STORE: 'francosport_auth_store',
   CART_STORE: 'francosport_cart_store',

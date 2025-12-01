@@ -61,6 +61,21 @@ axiosInstance.interceptors.request.use(
 
 // ===== RESPONSE INTERCEPTOR =====
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     // Log de response en desarrollo
@@ -75,6 +90,8 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error: AxiosError<ApiResponse>) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
     // Log de error (excepto 404)
     if (error.response?.status !== 404) {
       console.error('❌ Response Error:', {
@@ -91,8 +108,63 @@ axiosInstance.interceptors.response.use(
 
       switch (status) {
         case 401:
+          // Si es error de login, dejar que el componente lo maneje
+          if (originalRequest?.url?.includes('/auth/login')) {
+            return Promise.reject(error);
+          }
+
           // Token expirado o inválido
-          handleUnauthorized();
+          if (originalRequest && !originalRequest._retry) {
+            if (isRefreshing) {
+              return new Promise(function (resolve, reject) {
+                failedQueue.push({ resolve, reject });
+              })
+                .then((token) => {
+                  if (originalRequest.headers) {
+                    originalRequest.headers['Authorization'] = 'Bearer ' + token;
+                  }
+                  return axiosInstance(originalRequest);
+                })
+                .catch((err) => {
+                  return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+              const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN); // Asumimos que guardamos esto
+
+              if (!refreshToken) {
+                throw new Error('No refresh token available');
+              }
+
+              const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, {
+                refreshToken,
+              });
+
+              const { token } = response.data.data;
+
+              localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+
+              axiosInstance.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+              if (originalRequest.headers) {
+                originalRequest.headers['Authorization'] = 'Bearer ' + token;
+              }
+
+              processQueue(null, token);
+              return axiosInstance(originalRequest);
+            } catch (err) {
+              processQueue(err, null);
+              handleUnauthorized();
+              return Promise.reject(err);
+            } finally {
+              isRefreshing = false;
+            }
+          } else {
+            handleUnauthorized();
+          }
           break;
 
         case 403:
@@ -143,6 +215,7 @@ function handleUnauthorized() {
 
   // Limpiar localStorage
   localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN); // Limpiar refresh token también
   localStorage.removeItem(STORAGE_KEYS.USER_DATA);
 
   // Redirigir a login (solo si no estamos ya ahí)

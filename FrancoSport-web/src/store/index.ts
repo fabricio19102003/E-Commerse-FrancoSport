@@ -19,3 +19,6 @@ export * from './uiStore';
 
 // Wishlist Store
 export * from './wishlistStore';
+
+// Order Store
+export * from './orderStore';

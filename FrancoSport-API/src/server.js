@@ -7,6 +7,8 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { initSocket } from './socket.js';
 
 // Import ES6 routes
 import authRoutes from './routes/auth.routes.js';
@@ -25,7 +27,14 @@ import adminBrandsRoutes from './routes/admin/brands.routes.js';
 import adminCouponsRoutes from './routes/admin/coupons.routes.js';
 import adminShippingRoutes from './routes/admin/shipping.routes.js';
 import adminReviewsRoutes from './routes/admin/reviews.routes.js';
+import adminPromotionsRoutes from './routes/admin/promotions.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import sitemapRoutes from './routes/sitemap.routes.js';
+import reviewRoutes from './routes/review.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import chatRoutes from './routes/chat.routes.js';
+import loyaltyRoutes from './routes/loyalty.routes.js';
+import promotionRoutes from './routes/promotions.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -72,6 +81,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 // Admin API Routes
 app.use('/api/admin/products', adminProductsRoutes);
@@ -83,9 +93,25 @@ app.use('/api/admin/brands', adminBrandsRoutes);
 app.use('/api/admin/coupons', adminCouponsRoutes);
 app.use('/api/admin/shipping', adminShippingRoutes);
 app.use('/api/admin/reviews', adminReviewsRoutes);
+app.use('/api/admin/promotions', adminPromotionsRoutes);
 
 // Upload Routes
 app.use('/api/upload', uploadRoutes);
+
+// Review Routes
+app.use('/api/reviews', reviewRoutes);
+
+// Notification Routes
+app.use('/api/notifications', notificationRoutes);
+
+// Chat Routes
+app.use('/api/chat', chatRoutes);
+
+// Loyalty Routes
+app.use('/api/loyalty', loyaltyRoutes);
+
+// Sitemap
+app.use('/', sitemapRoutes);
 
 // ===== ERROR HANDLING =====
 
@@ -99,7 +125,13 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+// Create HTTP server
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log('\n🚀 ========================================');
   console.log(`🔴 Franco Sport API is running!`);
   console.log(`⚡ "No es suerte, es esfuerzo"`);

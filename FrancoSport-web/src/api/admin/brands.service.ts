@@ -62,18 +62,30 @@ export const getBrand = async (id: number) => {
     return response.data;
 };
 
-export const createBrand = async (data: BrandFormData) => {
+export const createBrand = async (data: BrandFormData | FormData) => {
+    const isFormData = data instanceof FormData;
     const response = await axios.post<{ success: boolean; data: Brand; message: string }>(
         '/admin/brands',
-        data
+        data,
+        {
+            headers: {
+                'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+            },
+        }
     );
     return response.data;
 };
 
-export const updateBrand = async (id: number, data: BrandFormData) => {
+export const updateBrand = async (id: number, data: BrandFormData | FormData) => {
+    const isFormData = data instanceof FormData;
     const response = await axios.put<{ success: boolean; data: Brand; message: string }>(
         `/admin/brands/${id}`,
-        data
+        data,
+        {
+            headers: {
+                'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+            },
+        }
     );
     return response.data;
 };

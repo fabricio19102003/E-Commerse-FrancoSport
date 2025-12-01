@@ -11,11 +11,14 @@ import {
   ArrowLeft, 
   Minus, 
   Plus, 
-  Share2
+  Share2,
+  Award
 } from 'lucide-react';
-import { getProductBySlug, getProductReviews, createProductReview } from '@/api/products.service';
+import { getProductBySlug } from '@/api/products.service';
+import { reviewsService } from '@/api/reviews.service';
+import { logViewItem, logAddToCart } from '@/api/analytics.service';
 import { useCartStore, useWishlistStore, useAuthStore } from '@/store';
-import type { Product, Review, CreateReviewInput } from '@/types';
+import type { Product, Review } from '@/types';
 import { ROUTES } from '@/constants/routes';
 import toast from 'react-hot-toast';
 
@@ -53,10 +56,13 @@ const ProductDetail: React.FC = () => {
         setSelectedImage(data.images[0]?.url || '/placeholder.png');
         setIsWishlisted(isInWishlist(data.id));
         
+        // Track view_item
+        logViewItem(data);
+
         // Load reviews
         try {
-          const reviewsData = await getProductReviews(data.id);
-          setReviews(reviewsData);
+          const reviewsResponse = await reviewsService.getProductReviews(data.id);
+          setReviews(reviewsResponse.data);
         } catch (err: any) {
           if (err.response && err.response.status === 404) {
             setReviews([]);
@@ -85,6 +91,7 @@ const ProductDetail: React.FC = () => {
   const handleAddToCart = () => {
     if (!product) return;
     addToCart(product, undefined, quantity);
+    logAddToCart(product, quantity);
     toast.success('Producto agregado al carrito');
   };
 
@@ -118,29 +125,27 @@ const ProductDetail: React.FC = () => {
 
     try {
       setIsSubmittingReview(true);
-      const newReview: CreateReviewInput = {
+      await reviewsService.createReview({
         product_id: product.id,
         rating: reviewRating,
         comment: reviewComment,
-        title: 'Reseña de usuario'
-      };
+      });
 
-      await createProductReview(newReview);
-      toast.success('Reseña enviada correctamente');
+      toast.success('Reseña enviada correctamente. Pendiente de aprobación.');
       setShowReviewForm(false);
       setReviewComment('');
       setReviewRating(5);
       
       // Reload reviews
       try {
-        const reviewsData = await getProductReviews(product.id);
-        setReviews(reviewsData);
+        const reviewsResponse = await reviewsService.getProductReviews(product.id);
+        setReviews(reviewsResponse.data);
       } catch (error) {
         console.error('Error reloading reviews:', error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting review:', error);
-      toast.error('Error al enviar la reseña');
+      toast.error(error.response?.data?.error?.message || 'Error al enviar la reseña');
     } finally {
       setIsSubmittingReview(false);
     }
@@ -245,6 +250,11 @@ const ProductDetail: React.FC = () => {
                   -{Math.round(((Number(product.compare_at_price) - Number(product.price)) / Number(product.compare_at_price)) * 100)}%
                 </Badge>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 mb-6 text-sm text-yellow-600 bg-yellow-50 w-fit px-3 py-1.5 rounded-full border border-yellow-200">
+              <Award className="w-4 h-4" />
+              <span>Gana <strong>{Math.floor(Number(product.price))}</strong> puntos con esta compra</span>
             </div>
 
             <div className="prose prose-invert text-text-secondary mb-8 max-w-none">

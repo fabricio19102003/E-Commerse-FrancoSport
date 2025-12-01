@@ -6,6 +6,8 @@ import { ROUTES } from '@/constants/routes';
 import { useAuthStore } from '@/store';
 import toast from 'react-hot-toast';
 
+import { logSignUp } from '@/api/analytics.service';
+
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const { register, isLoading, error } = useAuthStore();
@@ -57,6 +59,7 @@ const Register: React.FC = () => {
         password: formData.password,
       });
 
+      logSignUp('email');
       toast.success('¡Cuenta creada exitosamente!');
       navigate(ROUTES.HOME);
     } catch (err) {

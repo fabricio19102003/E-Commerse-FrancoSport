@@ -2,10 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
-import { User, Package, LogOut, Save, Loader2 } from 'lucide-react';
+import { User, Package, LogOut, Save, Loader2, Award, Bell } from 'lucide-react';
 import { useAuthStore } from '@/store';
 import { updateProfile } from '@/api/users.service';
 import { getOrders } from '@/api/orders.service';
+import { loyaltyService } from '@/api/loyalty.service';
+import { notificationsService } from '@/api/notifications.service';
+import type { PointsHistoryResponse } from '@/api/loyalty.service';
 import { ROUTES } from '@/constants/routes';
 import type { Order } from '@/types';
 import toast from 'react-hot-toast';
@@ -15,21 +18,25 @@ import { useSearchParams } from 'react-router-dom';
 const Profile: React.FC = () => {
   const { user, logout, setUser } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'profile' | 'orders'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'points'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [pointsData, setPointsData] = useState<PointsHistoryResponse | null>(null);
+  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab === 'orders') {
       setActiveTab('orders');
+    } else if (tab === 'points') {
+      setActiveTab('points');
     } else {
       setActiveTab('profile');
     }
   }, [searchParams]);
 
-  const handleTabChange = (tab: 'profile' | 'orders') => {
+  const handleTabChange = (tab: 'profile' | 'orders' | 'points') => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -56,6 +63,8 @@ const Profile: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'orders') {
       loadOrders();
+    } else if (activeTab === 'points') {
+      loadPoints();
     }
   }, [activeTab]);
 
@@ -69,6 +78,19 @@ const Profile: React.FC = () => {
       toast.error('Error al cargar pedidos');
     } finally {
       setIsLoadingOrders(false);
+    }
+  };
+
+  const loadPoints = async () => {
+    try {
+      setIsLoadingPoints(true);
+      const data = await loyaltyService.getHistory();
+      setPointsData(data);
+    } catch (error) {
+      console.error('Error loading points:', error);
+      toast.error('Error al cargar puntos');
+    } finally {
+      setIsLoadingPoints(false);
     }
   };
 
@@ -108,6 +130,26 @@ const Profile: React.FC = () => {
                 </div>
                 <h2 className="font-bold text-lg">{user.first_name} {user.last_name}</h2>
                 <p className="text-sm text-text-secondary">{user.email}</p>
+                {user.loyalty_points > 0 && (
+                  <div className="mt-2 bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                    <Award className="w-3 h-3" />
+                    {user.loyalty_points} Puntos
+                  </div>
+                )}
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="mt-4 text-xs"
+                  leftIcon={<Bell className="w-3 h-3" />}
+                  onClick={() => {
+                    notificationsService.subscribeToPush()
+                      .then(() => toast.success('Notificaciones activadas'))
+                      .catch(() => toast.error('No se pudieron activar las notificaciones'));
+                  }}
+                >
+                  Activar Notificaciones
+                </Button>
               </div>
 
               <nav className="space-y-1">
@@ -130,6 +172,16 @@ const Profile: React.FC = () => {
                   }`}
                 >
                   <Package className="w-4 h-4" /> Mis Pedidos
+                </button>
+                <button
+                  onClick={() => handleTabChange('points')}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
+                    activeTab === 'points' 
+                      ? 'bg-primary text-white' 
+                      : 'text-text-secondary hover:bg-surface-light'
+                  }`}
+                >
+                  <Award className="w-4 h-4" /> Mis Puntos
                 </button>
                 <button
                   onClick={logout}
@@ -254,6 +306,72 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {activeTab === 'points' && (
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold">Mis Puntos de Lealtad</h2>
+                  <div className="bg-yellow-500/10 text-yellow-500 px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+                    <Award className="w-5 h-5" />
+                    {pointsData?.current_points || 0} Puntos
+                  </div>
+                </div>
+
+                <div className="bg-surface-light p-4 rounded-lg mb-6">
+                  <h3 className="font-bold mb-2">¿Cómo funciona?</h3>
+                  <ul className="list-disc list-inside text-sm text-text-secondary space-y-1">
+                    <li>Gana <strong>1 punto</strong> por cada $1 gastado en tus compras.</li>
+                    <li>Canjea tus puntos en el checkout para obtener descuentos.</li>
+                    <li><strong>100 puntos = $1 de descuento.</strong></li>
+                  </ul>
+                </div>
+
+                {isLoadingPoints ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="animate-spin text-primary w-8 h-8" />
+                  </div>
+                ) : !pointsData || pointsData.history.length === 0 ? (
+                  <div className="text-center py-12 text-text-tertiary">
+                    <Award className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                    <p>Aún no tienes historial de puntos.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="p-3 font-semibold text-sm text-text-secondary">Fecha</th>
+                          <th className="p-3 font-semibold text-sm text-text-secondary">Descripción</th>
+                          <th className="p-3 font-semibold text-sm text-text-secondary text-right">Puntos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pointsData.history.map((transaction) => (
+                          <tr key={transaction.id} className="border-b border-border/50 hover:bg-surface-light/50">
+                            <td className="p-3 text-sm">
+                              {new Date(transaction.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="p-3 text-sm">
+                              {transaction.description}
+                              {transaction.order && (
+                                <span className="text-xs text-text-tertiary block">
+                                  Pedido: {transaction.order.order_number}
+                                </span>
+                              )}
+                            </td>
+                            <td className={`p-3 text-sm font-bold text-right ${
+                              transaction.points > 0 ? 'text-green-500' : 'text-red-500'
+                            }`}>
+                              {transaction.points > 0 ? '+' : ''}{transaction.points}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </Card>

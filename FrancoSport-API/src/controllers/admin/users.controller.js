@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -447,6 +448,46 @@ export const getUserOrders = async (req, res, next) => {
     res.json({
       success: true,
       data: orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Change user password (admin)
+ * PATCH /api/admin/users/:id/password
+ */
+export const changeUserPassword = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PASSWORD',
+          message: 'La contraseña debe tener al menos 8 caracteres',
+        },
+      });
+    }
+
+    // Prevent admin from changing their own password via this endpoint (should use profile)
+    // Although sometimes admins might want to reset their own password here too. 
+    // Let's allow it but log it or just allow it.
+    
+    // Hash password
+    const password_hash = await bcrypt.hash(password, 12);
+
+    await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { password_hash },
+    });
+
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada exitosamente',
     });
   } catch (error) {
     next(error);

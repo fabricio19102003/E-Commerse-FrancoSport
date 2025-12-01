@@ -6,27 +6,25 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ROUTES } from '@/constants/routes';
 import { adminUsersService } from '@/api/admin';
 import {
   Search,
-  Filter,
-  Eye,
   UserX,
   UserCheck,
-  Mail,
   Calendar,
-  DollarSign,
   ShoppingCart,
   Users,
   Shield,
   Loader2,
   CheckCircle,
+  Key,
+  Edit,
+  X
 } from 'lucide-react';
 import type { User } from '@/types';
-
+import { Button, Card } from '@/components/ui';
 import { useConfirm } from '@/hooks/useConfirm';
+import toast from 'react-hot-toast';
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -44,6 +42,22 @@ const AdminUsers: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Modals State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Form State
+  const [editForm, setEditForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    role: '',
+    phone: ''
+  });
+  const [passwordForm, setPasswordForm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch users from API
   const fetchUsers = async () => {
@@ -91,25 +105,87 @@ const AdminUsers: React.FC = () => {
     const user = users.find(u => u.id === userId);
     if (!user) return;
 
-    const confirmMessage = user.is_active
-      ? '¿Estás seguro de que deseas desactivar este usuario?'
-      : '¿Estás seguro de que deseas activar este usuario?';
+    const action = user.is_active ? 'desactivar' : 'activar';
+    const confirmMessage = `¿Estás seguro de que deseas ${action} al usuario ${user.first_name} ${user.last_name}? \n\n${
+      user.is_active 
+        ? 'El usuario perderá acceso al sistema inmediatamente.' 
+        : 'El usuario podrá volver a iniciar sesión en el sistema.'
+    }`;
 
     const isConfirmed = await confirm({
       title: user.is_active ? 'Desactivar Usuario' : 'Activar Usuario',
       message: confirmMessage,
-      confirmText: user.is_active ? 'Desactivar' : 'Activar',
-      variant: user.is_active ? 'danger' : 'warning'
+      confirmText: user.is_active ? 'Sí, Desactivar' : 'Sí, Activar',
+      variant: user.is_active ? 'danger' : 'info'
     });
 
     if (!isConfirmed) return;
 
     try {
       await adminUsersService.toggleUserStatus(userId);
+      toast.success(`Usuario ${user.is_active ? 'desactivado' : 'activado'} correctamente`);
       fetchUsers(); // Refresh list
     } catch (err: any) {
       console.error('Error toggling status:', err);
-      alert(err.response?.data?.error?.message || 'Error al cambiar estado del usuario');
+      toast.error(err.response?.data?.error?.message || 'Error al cambiar estado del usuario');
+    }
+  };
+
+  const handleEditClick = (user: User) => {
+    setSelectedUser(user);
+    setEditForm({
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handlePasswordClick = (user: User) => {
+    setSelectedUser(user);
+    setPasswordForm('');
+    setShowPasswordModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    try {
+      setIsSubmitting(true);
+      await adminUsersService.updateUser(selectedUser.id, editForm as any);
+      toast.success('Usuario actualizado correctamente');
+      setShowEditModal(false);
+      fetchUsers();
+    } catch (err: any) {
+      console.error('Error updating user:', err);
+      toast.error(err.response?.data?.error?.message || 'Error al actualizar usuario');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    if (passwordForm.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await adminUsersService.changeUserPassword(selectedUser.id, passwordForm);
+      toast.success('Contraseña actualizada correctamente');
+      setShowPasswordModal(false);
+    } catch (err: any) {
+      console.error('Error changing password:', err);
+      toast.error(err.response?.data?.error?.message || 'Error al cambiar contraseña');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -362,10 +438,18 @@ const AdminUsers: React.FC = () => {
                             {isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
                           <button
-                            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
-                            title="Ver detalle"
+                            onClick={() => handleEditClick(user)}
+                            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors text-blue-500"
+                            title="Editar usuario"
                           >
-                            <Eye className="w-4 h-4 text-neutral-400" />
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handlePasswordClick(user)}
+                            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors text-yellow-500"
+                            title="Cambiar contraseña"
+                          >
+                            <Key className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -377,6 +461,132 @@ const AdminUsers: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md bg-[#1A1A1A] border-neutral-800 p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-white">Editar Usuario</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    value={editForm.first_name}
+                    onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
+                    className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-1">Apellido</label>
+                  <input
+                    type="text"
+                    value={editForm.last_name}
+                    onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+                    className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Rol</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                >
+                  <option value="CUSTOMER">Cliente</option>
+                  <option value="MODERATOR">Moderador</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" type="button" onClick={() => setShowEditModal(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="primary" type="submit" isLoading={isSubmitting}>
+                  Guardar Cambios
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showPasswordModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md bg-[#1A1A1A] border-neutral-800 p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-white">Cambiar Contraseña</h3>
+              <button onClick={() => setShowPasswordModal(false)} className="text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <p className="text-sm text-yellow-500">
+                Estás cambiando la contraseña para el usuario <strong>{selectedUser.first_name} {selectedUser.last_name}</strong>.
+              </p>
+            </div>
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Nueva Contraseña</label>
+                <input
+                  type="password"
+                  value={passwordForm}
+                  onChange={(e) => setPasswordForm(e.target.value)}
+                  className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                  placeholder="Mínimo 8 caracteres"
+                  required
+                  minLength={8}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" type="button" onClick={() => setShowPasswordModal(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="primary" type="submit" isLoading={isSubmitting}>
+                  Actualizar Contraseña
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

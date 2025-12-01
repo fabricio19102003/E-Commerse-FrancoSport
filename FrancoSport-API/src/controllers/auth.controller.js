@@ -5,7 +5,8 @@
 
 import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
-import { generateToken } from '../utils/jwt.js';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
+import { sendWelcomeEmail } from '../services/email.service.js';
 
 /**
  * Register new user
@@ -57,18 +58,26 @@ export const register = async (req, res, next) => {
       },
     });
 
-    // Generate token
+    // Generate tokens
     const token = generateToken({
       id: user.id,
       email: user.email,
       role: user.role,
     });
 
+    const refreshToken = generateRefreshToken({
+      id: user.id,
+    });
+
+    // Send welcome email (async, don't await)
+    sendWelcomeEmail(user).catch(err => console.error('Failed to send welcome email:', err));
+
     res.status(201).json({
       success: true,
       message: 'Usuario registrado exitosamente',
       data: {
         token,
+        refreshToken,
         user,
       },
     });
@@ -137,6 +146,10 @@ export const login = async (req, res, next) => {
       role: user.role,
     });
 
+    const refreshToken = generateRefreshToken({
+      id: user.id,
+    });
+
     // Remove password_hash from response
     const { password_hash, ...userWithoutPassword } = user;
 
@@ -145,6 +158,7 @@ export const login = async (req, res, next) => {
       message: 'Inicio de sesión exitoso',
       data: {
         token,
+        refreshToken,
         user: userWithoutPassword,
       },
     });
@@ -181,6 +195,69 @@ export const getMe = async (req, res, next) => {
       data: user,
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Refresh access token
+ * POST /api/auth/refresh
+ */
+export const refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_TOKEN',
+          message: 'Refresh token requerido',
+        },
+      });
+    }
+
+    // Verify token
+    const decoded = verifyRefreshToken(refreshToken);
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user || !user.is_active) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_USER',
+          message: 'Usuario no válido',
+        },
+      });
+    }
+
+    // Generate new access token
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        token,
+      },
+    });
+  } catch (error) {
+    if (error.message === 'Refresh token inválido o expirado') {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_REFRESH_TOKEN',
+          message: 'Sesión expirada, por favor inicie sesión nuevamente',
+        },
+      });
+    }
     next(error);
   }
 };

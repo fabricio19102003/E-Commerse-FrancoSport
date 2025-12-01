@@ -17,6 +17,8 @@ export { default as AdminBrands } from './AdminBrands';
 export { default as AdminCoupons } from './AdminCoupons';
 export { default as AdminShipping } from './AdminShipping';
 export { default as AdminReviews } from './AdminReviews';
+export { default as AdminChat } from './AdminChat';
+export { default as AdminPromotions } from './AdminPromotions';
 export {
   AdminSettings,
 } from './AdminPlaceholders';

@@ -6,6 +6,8 @@ import { ROUTES } from '@/constants/routes';
 import { useAuthStore } from '@/store';
 import toast from 'react-hot-toast';
 
+import { logLogin } from '@/api/analytics.service';
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,6 +38,7 @@ const Login: React.FC = () => {
         remember_me: formData.remember_me,
       });
 
+      logLogin('email');
       toast.success('¡Bienvenido de nuevo!');
       
       // Redirect to the page they tried to access, or home
@@ -86,6 +89,7 @@ const Login: React.FC = () => {
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             required
             fullWidth
+            autoComplete="current-password"
           />
 
           {/* Remember Me & Forgot Password */}
@@ -142,16 +146,7 @@ const Login: React.FC = () => {
           Crear cuenta nueva
         </Button>
 
-        {/* Demo Credentials */}
-        <div className="mt-6 p-4 bg-surface-light rounded-lg border border-surface-lighter">
-          <p className="text-xs text-text-tertiary mb-2 font-bold uppercase">
-            Credenciales de Prueba:
-          </p>
-          <div className="space-y-1 text-xs text-text-secondary">
-            <p>👤 Admin: admin@franco.com / 1234</p>
-            <p>👤 Usuario: user@franco.com / 1234</p>
-          </div>
-        </div>
+
 
         {/* Footer Note */}
         <p className="text-xs text-text-tertiary text-center mt-6">

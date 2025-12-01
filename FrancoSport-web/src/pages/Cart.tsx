@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui';
@@ -7,12 +7,19 @@ import { useCartStore } from '@/store';
 import { ROUTES } from '@/constants/routes';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@/hooks/useConfirm';
+import { logViewCart } from '@/api/analytics.service';
 
 const Cart: React.FC = () => {
   const navigate = useNavigate();
   const { items, removeItem, updateQuantity, clearCart, subtotal } = useCartStore();
   const { confirm } = useConfirm();
   const total = subtotal;
+
+  useEffect(() => {
+    if (items.length > 0) {
+      logViewCart(items, total);
+    }
+  }, [items.length, total]); // Track when cart content changes or loads
 
   const handleUpdateQuantity = (id: number, newQuantity: number, stock: number) => {
     if (newQuantity < 1) return;

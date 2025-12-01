@@ -44,6 +44,18 @@ router.patch(
   usersController.changeUserRole
 );
 
+// PATCH /api/admin/users/:id/password - Change user password
+router.patch(
+  '/:id/password',
+  [
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('La contraseña debe tener al menos 8 caracteres'),
+    validate,
+  ],
+  usersController.changeUserPassword
+);
+
 // DELETE /api/admin/users/:id - Delete user
 router.delete('/:id', usersController.deleteUser);
 

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /perfil/
+Disallow: /carrito/
+
+Sitemap: https://francosport.com/sitemap.xml

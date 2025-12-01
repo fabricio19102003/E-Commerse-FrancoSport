@@ -128,15 +128,21 @@ export const createCategory = async (req, res, next) => {
       });
     }
 
+    // Handle image upload
+    let finalImageUrl = image_url;
+    if (req.file) {
+      finalImageUrl = req.file.path;
+    }
+
     const category = await prisma.category.create({
       data: {
         name,
         slug,
         description,
-        image_url,
+        image_url: finalImageUrl,
         parent_id: parent_id ? parseInt(parent_id) : null,
         display_order: display_order ? parseInt(display_order) : 0,
-        is_active: is_active === true
+        is_active: is_active === 'true' || is_active === true
       }
     });
 
@@ -210,16 +216,22 @@ export const updateCategory = async (req, res, next) => {
       });
     }
 
+    // Handle image upload
+    let finalImageUrl = image_url;
+    if (req.file) {
+      finalImageUrl = req.file.path;
+    }
+
     const category = await prisma.category.update({
       where: { id: parseInt(id) },
       data: {
         name,
         slug,
         description,
-        image_url,
+        image_url: finalImageUrl,
         parent_id: parent_id ? parseInt(parent_id) : null,
         display_order: display_order ? parseInt(display_order) : undefined,
-        is_active: is_active !== undefined ? is_active : undefined
+        is_active: is_active !== undefined ? (is_active === 'true' || is_active === true) : undefined
       }
     });
 

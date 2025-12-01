@@ -6,20 +6,21 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { adminCategoriesService } from '@/api/admin';
+import * as adminCategoriesService from '@/api/admin/categories.service';
 import type { Category, CategoryFormData } from '@/api/admin/categories.service';
 import {
   Plus,
   Search,
   Edit,
   Trash2,
-  CheckCircle,
-  XCircle,
   Loader2,
   FolderTree,
   Save,
-  X
+  X,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 import { useConfirm } from '@/hooks/useConfirm';
 
@@ -42,6 +43,9 @@ const AdminCategories: React.FC = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   // Fetch categories
   const fetchCategories = async () => {
     try {
@@ -52,6 +56,7 @@ const AdminCategories: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching categories:', err);
       setError(err.response?.data?.error?.message || 'Error al cargar categorías');
+      toast.error(err.response?.data?.error?.message || 'Error al cargar categorías');
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +78,7 @@ const AdminCategories: React.FC = () => {
         is_active: category.is_active,
         parent_id: category.parent_id
       });
+      setImagePreview(category.image_url || null);
     } else {
       setEditingCategory(null);
       setFormData({
@@ -82,7 +88,9 @@ const AdminCategories: React.FC = () => {
         display_order: 0,
         is_active: true
       });
+      setImagePreview(null);
     }
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -90,6 +98,8 @@ const AdminCategories: React.FC = () => {
     setIsModalOpen(false);
     setEditingCategory(null);
     setError(null);
+    setImageFile(null);
+    setImagePreview(null);
   };
 
   const generateSlug = (name: string) => {
@@ -110,25 +120,51 @@ const AdminCategories: React.FC = () => {
     }));
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsSaving(true);
       setError(null);
 
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('slug', formData.slug);
+      if (formData.description) data.append('description', formData.description);
+      if (formData.parent_id) data.append('parent_id', String(formData.parent_id));
+      data.append('display_order', String(formData.display_order));
+      data.append('is_active', String(formData.is_active));
+      
+      if (imageFile) {
+        data.append('image', imageFile);
+      }
+
       if (editingCategory) {
-        await adminCategoriesService.updateCategory(editingCategory.id, formData);
-        alert('Categoría actualizada exitosamente');
+        await adminCategoriesService.updateCategory(editingCategory.id, data);
+        toast.success('Categoría actualizada exitosamente');
       } else {
-        await adminCategoriesService.createCategory(formData);
-        alert('Categoría creada exitosamente');
+        await adminCategoriesService.createCategory(data);
+        toast.success('Categoría creada exitosamente');
       }
 
       handleCloseModal();
       fetchCategories();
     } catch (err: any) {
       console.error('Error saving category:', err);
-      setError(err.response?.data?.error?.message || 'Error al guardar categoría');
+      const errorMessage = err.response?.data?.error?.message || 'Error al guardar categoría';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -147,11 +183,11 @@ const AdminCategories: React.FC = () => {
 
     try {
       await adminCategoriesService.deleteCategory(id);
-      alert('Categoría eliminada exitosamente');
+      toast.success('Categoría eliminada exitosamente');
       fetchCategories();
     } catch (err: any) {
       console.error('Error deleting category:', err);
-      alert(err.response?.data?.error?.message || 'Error al eliminar categoría');
+      toast.error(err.response?.data?.error?.message || 'Error al eliminar categoría');
     }
   };
 
@@ -160,9 +196,10 @@ const AdminCategories: React.FC = () => {
     try {
       await adminCategoriesService.toggleCategoryStatus(id);
       fetchCategories();
+      toast.success('Estado actualizado');
     } catch (err: any) {
       console.error('Error toggling status:', err);
-      alert(err.response?.data?.error?.message || 'Error al cambiar estado');
+      toast.error(err.response?.data?.error?.message || 'Error al cambiar estado');
     }
   };
 
@@ -339,6 +376,44 @@ const AdminCategories: React.FC = () => {
                   className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary font-mono text-sm"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">
+                  Imagen
+                </label>
+                <div className="flex items-center space-x-4">
+                  <div className="relative w-24 h-24 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 flex items-center justify-center group">
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-neutral-600" />
+                    )}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <label className="cursor-pointer p-2 text-white hover:text-primary transition-colors">
+                        <Upload className="w-5 h-5" />
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-neutral-400 mb-2">
+                      Sube una imagen para la categoría.
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      Formato: JPG, JPEG, PNG. Máximo 5MB.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>

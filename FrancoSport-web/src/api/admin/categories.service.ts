@@ -66,18 +66,30 @@ export const getCategory = async (id: number) => {
     return response.data;
 };
 
-export const createCategory = async (data: CategoryFormData) => {
+export const createCategory = async (data: CategoryFormData | FormData) => {
+    const isFormData = data instanceof FormData;
     const response = await axios.post<{ success: boolean; data: Category; message: string }>(
         '/admin/categories',
-        data
+        data,
+        {
+            headers: {
+                'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+            },
+        }
     );
     return response.data;
 };
 
-export const updateCategory = async (id: number, data: CategoryFormData) => {
+export const updateCategory = async (id: number, data: CategoryFormData | FormData) => {
+    const isFormData = data instanceof FormData;
     const response = await axios.put<{ success: boolean; data: Category; message: string }>(
         `/admin/categories/${id}`,
-        data
+        data,
+        {
+            headers: {
+                'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+            },
+        }
     );
     return response.data;
 };

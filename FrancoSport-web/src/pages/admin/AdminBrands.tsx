@@ -1,111 +1,110 @@
-/**
- * Admin Brands Page
- * Franco Sport E-Commerce
- * 
- * Gestión de marcas (CRUD)
- */
-
-import React, { useEffect, useState } from 'react';
-import { adminBrandsService } from '@/api/admin';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2, Save, X, Loader2, Globe, Tag, Upload, Image as ImageIcon } from 'lucide-react';
+import * as adminBrandsService from '@/api/admin/brands.service';
 import type { Brand, BrandFormData } from '@/api/admin/brands.service';
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Loader2,
-  Tag,
-  Save,
-  X,
-  Globe
-} from 'lucide-react';
-
 import { useConfirm } from '@/hooks/useConfirm';
+import toast from 'react-hot-toast';
 
 const AdminBrands: React.FC = () => {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const { confirm } = useConfirm();
   
-  // Modal State
+  // State
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const [formData, setFormData] = useState<BrandFormData>({
     name: '',
     slug: '',
-    description: '',
     website_url: '',
+    description: '',
     is_active: true
   });
-  const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch brands
+  useEffect(() => {
+    fetchBrands();
+  }, []);
+
   const fetchBrands = async () => {
     try {
       setIsLoading(true);
-      setError(null);
-      const response = await adminBrandsService.getBrands({ search: searchTerm });
+      const response = await adminBrandsService.getBrands();
       setBrands(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching brands:', err);
-      setError(err.response?.data?.error?.message || 'Error al cargar marcas');
+      toast.error('Error al cargar marcas');
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBrands();
-  }, [searchTerm]);
-
-  // Handle Create/Edit
   const handleOpenModal = (brand?: Brand) => {
     if (brand) {
       setEditingBrand(brand);
       setFormData({
         name: brand.name,
         slug: brand.slug,
-        description: brand.description || '',
         website_url: brand.website_url || '',
+        description: brand.description || '',
         is_active: brand.is_active
       });
+      setImagePreview(brand.logo_url || null);
     } else {
       setEditingBrand(null);
       setFormData({
         name: '',
         slug: '',
-        description: '',
         website_url: '',
+        description: '',
         is_active: true
       });
+      setImagePreview(null);
     }
+    setImageFile(null);
+    setError(null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingBrand(null);
-    setError(null);
-  };
-
-  const generateSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
+    setImageFile(null);
+    setImagePreview(null);
   };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      name,
-      slug: !editingBrand ? generateSlug(name) : prev.slug
-    }));
+    if (!editingBrand) {
+      const slug = name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      setFormData(prev => ({ ...prev, name, slug }));
+    } else {
+      setFormData(prev => ({ ...prev, name }));
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,25 +113,37 @@ const AdminBrands: React.FC = () => {
       setIsSaving(true);
       setError(null);
 
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('slug', formData.slug);
+      if (formData.website_url) data.append('website_url', formData.website_url);
+      if (formData.description) data.append('description', formData.description);
+      data.append('is_active', String(formData.is_active));
+
+      if (imageFile) {
+        data.append('image', imageFile);
+      }
+
       if (editingBrand) {
-        await adminBrandsService.updateBrand(editingBrand.id, formData);
-        alert('Marca actualizada exitosamente');
+        await adminBrandsService.updateBrand(editingBrand.id, data);
+        toast.success('Marca actualizada exitosamente');
       } else {
-        await adminBrandsService.createBrand(formData);
-        alert('Marca creada exitosamente');
+        await adminBrandsService.createBrand(data);
+        toast.success('Marca creada exitosamente');
       }
 
       handleCloseModal();
       fetchBrands();
     } catch (err: any) {
       console.error('Error saving brand:', err);
-      setError(err.response?.data?.error?.message || 'Error al guardar marca');
+      const errorMessage = err.response?.data?.error?.message || 'Error al guardar marca';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Handle Delete
   const handleDelete = async (id: number) => {
     const isConfirmed = await confirm({
       title: 'Eliminar Marca',
@@ -145,22 +156,22 @@ const AdminBrands: React.FC = () => {
 
     try {
       await adminBrandsService.deleteBrand(id);
-      alert('Marca eliminada exitosamente');
+      toast.success('Marca eliminada exitosamente');
       fetchBrands();
     } catch (err: any) {
       console.error('Error deleting brand:', err);
-      alert(err.response?.data?.error?.message || 'Error al eliminar marca');
+      toast.error(err.response?.data?.error?.message || 'Error al eliminar marca');
     }
   };
 
-  // Handle Toggle Status
   const handleToggleStatus = async (id: number) => {
     try {
       await adminBrandsService.toggleBrandStatus(id);
       fetchBrands();
+      toast.success('Estado actualizado');
     } catch (err: any) {
       console.error('Error toggling status:', err);
-      alert(err.response?.data?.error?.message || 'Error al cambiar estado');
+      toast.error(err.response?.data?.error?.message || 'Error al cambiar estado');
     }
   };
 
@@ -321,6 +332,44 @@ const AdminBrands: React.FC = () => {
                   {error}
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">
+                  Logo
+                </label>
+                <div className="flex items-center space-x-4">
+                  <div className="relative w-24 h-24 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 flex items-center justify-center group">
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-neutral-600" />
+                    )}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <label className="cursor-pointer p-2 text-white hover:text-primary transition-colors">
+                        <Upload className="w-5 h-5" />
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-neutral-400 mb-2">
+                      Sube el logo de la marca.
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      Formato: JPG, PNG. Máximo 5MB.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-400 mb-1">

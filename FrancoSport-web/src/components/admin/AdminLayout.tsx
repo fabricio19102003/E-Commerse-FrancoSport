@@ -25,6 +25,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
+  Zap,
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -61,6 +63,11 @@ const AdminLayout: React.FC = () => {
       path: ROUTES.ADMIN_USERS,
     },
     {
+      label: 'Promociones',
+      icon: Zap,
+      path: ROUTES.ADMIN_PROMOTIONS,
+    },
+    {
       label: 'Categorías',
       icon: FolderTree,
       path: ROUTES.ADMIN_CATEGORIES,
@@ -84,6 +91,11 @@ const AdminLayout: React.FC = () => {
       label: 'Reseñas',
       icon: Star,
       path: '/admin/resenas',
+    },
+    {
+      label: 'Chat',
+      icon: MessageCircle,
+      path: '/admin/chat',
     },
     {
       label: 'Configuración',

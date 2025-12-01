@@ -238,13 +238,13 @@ export const createOrder = async (req, res, next) => {
     }
 
     // Start transaction
-    const result = await prisma.$transaction(async (prisma) => {
+    const result = await prisma.$transaction(async (tx) => {
       let subtotal = 0;
       const orderItemsData = [];
 
       // Process items and check stock
       for (const item of items) {
-        const product = await prisma.product.findUnique({
+        const product = await tx.product.findUnique({
           where: { id: item.product_id },
           include: { variants: true },
         });
@@ -267,7 +267,7 @@ export const createOrder = async (req, res, next) => {
           price = Number(variant.price); // Use variant price if available
           
           // Update variant stock
-          await prisma.productVariant.update({
+          await tx.productVariant.update({
             where: { id: variant.id },
             data: { stock: { decrement: item.quantity } },
           });
@@ -277,7 +277,7 @@ export const createOrder = async (req, res, next) => {
           }
           
           // Update product stock
-          await prisma.product.update({
+          await tx.product.update({
             where: { id: product.id },
             data: { stock: { decrement: item.quantity } },
           });
@@ -297,26 +297,64 @@ export const createOrder = async (req, res, next) => {
 
       // Calculate shipping (hardcoded for now, can be dynamic)
       const shippingCost = 0;
-      const total = subtotal + shippingCost;
+      let total = subtotal + shippingCost;
+      let discountAmount = 0;
+
+      // Handle Points Redemption
+      const { redeem_points } = req.body;
+      if (redeem_points && redeem_points > 0) {
+        const user = await tx.user.findUnique({ where: { id: userId } });
+        
+        if (user.loyalty_points < redeem_points) {
+          throw new Error('Puntos de lealtad insuficientes');
+        }
+
+        // 100 points = $1 discount (Example ratio)
+        discountAmount = redeem_points / 100;
+        
+        // Ensure discount doesn't exceed total
+        if (discountAmount > total) {
+          discountAmount = total;
+          // Adjust points used if needed? For now, simple logic.
+        }
+
+        total -= discountAmount;
+
+        // Deduct points
+        await tx.user.update({
+          where: { id: userId },
+          data: { loyalty_points: { decrement: redeem_points } },
+        });
+
+        // Record transaction
+        await tx.loyaltyTransaction.create({
+          data: {
+            user_id: userId,
+            points: -redeem_points,
+            type: 'REDEEMED',
+            description: `Canje en pedido`,
+          },
+        });
+      }
 
       // Generate order number (simple timestamp based)
       const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
       // Create order
-      const order = await prisma.order.create({
+      const newOrder = await tx.order.create({
         data: {
           order_number: orderNumber,
           user_id: userId,
+          shipping_address_id,
+          shipping_method_id,
+          payment_method,
           status: 'PENDING',
-          payment_status: payment_method === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PENDING', // Verify later
-          payment_method: payment_method,
-          shipping_address_id: shipping_address_id,
-          shipping_method_id: shipping_method_id,
-          subtotal: subtotal,
+          payment_status: payment_method === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PENDING',
+          subtotal,
           shipping_cost: shippingCost,
           tax_amount: 0,
           total_amount: total,
-          // payment_proof_url: payment_proof_url, // TODO: Add column to DB
+          // payment_proof_url, // Uncomment if column exists
           items: {
             create: orderItemsData,
           },
@@ -328,15 +366,44 @@ export const createOrder = async (req, res, next) => {
           },
         },
         include: {
-          items: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          user: true,
         },
       });
 
-      return order;
+      // Link loyalty transaction if points redeemed
+      if (redeem_points && redeem_points > 0) {
+        await tx.loyaltyTransaction.updateMany({
+          where: { 
+            user_id: userId, 
+            type: 'REDEEMED', 
+            order_id: null,
+            created_at: { gte: new Date(Date.now() - 10000) } // Safety check, recently created
+          }, 
+          data: { order_id: newOrder.id }
+        });
+      }
+
+      return newOrder;
     });
+
+    // Send confirmation email (async)
+    const orderForEmail = {
+      ...result,
+      items: result.items.map(item => ({
+        ...item,
+        product_name: item.product.name,
+      })),
+    };
+    sendOrderConfirmationEmail(orderForEmail).catch(err => console.error('Failed to send order email:', err));
 
     res.status(201).json({
       success: true,
+      message: 'Pedido creado exitosamente',
       data: result,
     });
   } catch (error) {

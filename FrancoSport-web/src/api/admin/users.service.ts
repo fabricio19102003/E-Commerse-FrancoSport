@@ -87,6 +87,17 @@ export const changeUserRole = async (userId: number, role: 'ADMIN' | 'CUSTOMER' 
 };
 
 /**
+ * Change user password
+ */
+export const changeUserPassword = async (userId: number, password: string) => {
+  const response = await api.patch<{ success: boolean; message: string }>(
+    `/admin/users/${userId}/password`,
+    { password }
+  );
+  return response.data;
+};
+
+/**
  * Delete user (soft delete)
  */
 export const deleteUser = async (userId: number) => {
