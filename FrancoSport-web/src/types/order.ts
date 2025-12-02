@@ -39,6 +39,7 @@ export interface Order {
   payment_status: PaymentStatus;
   payment_method: string;
   payment_id?: string;
+  payment_proof_url?: string;
   subtotal: number;
   shipping_cost: number;
   tax_amount: number;
@@ -61,6 +62,12 @@ export interface Order {
   delivered_at?: string;
   created_at: string;
   updated_at: string;
+  itemsCount?: number;
+  customer?: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
 }
 
 export interface OrderItem {

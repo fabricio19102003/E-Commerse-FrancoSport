@@ -20,7 +20,8 @@ export const getPointsHistory = async (req, res, next) => {
         order: {
           select: {
             order_number: true,
-            total: true,
+            order_number: true,
+            total_amount: true,
           },
         },
       },

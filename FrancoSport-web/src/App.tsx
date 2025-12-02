@@ -48,6 +48,7 @@ import {
   AdminSettings,
   AdminChat,
   AdminPromotions,
+  AdminPaymentSettings,
 } from '@/pages/admin';
 
 import ChatWidget from '@/components/chat/ChatWidget';
@@ -217,6 +218,9 @@ function App() {
 
             {/* Chat */}
             <Route path={ROUTES.ADMIN_CHAT} element={<AdminChat />} />
+
+            {/* Payments */}
+            <Route path={ROUTES.ADMIN_PAYMENTS} element={<AdminPaymentSettings />} />
             
             {/* Settings */}
             <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />

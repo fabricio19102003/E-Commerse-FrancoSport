@@ -21,6 +21,7 @@ import {
   X,
   Star,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // Validation Schema
 const productSchema = z.object({
@@ -158,13 +159,13 @@ const AdminProductForm: React.FC = () => {
 
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('Solo se permiten archivos de imagen');
+        toast.error('Solo se permiten archivos de imagen');
         continue;
       }
 
       // Validate file size (5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('El tamaño máximo de imagen es 5MB');
+        toast.error('El tamaño máximo de imagen es 5MB');
         continue;
       }
 
@@ -231,7 +232,7 @@ const AdminProductForm: React.FC = () => {
     try {
       // Validate images
       if (images.length === 0) {
-        alert('Debes agregar al menos una imagen');
+        toast.error('Debes agregar al menos una imagen');
         return;
       }
 
@@ -281,10 +282,10 @@ const AdminProductForm: React.FC = () => {
       // Create or update product
       if (isEditing && id) {
         await adminProductsService.updateProduct(parseInt(id), productData);
-        alert('Producto actualizado exitosamente');
+        toast.success('Producto actualizado exitosamente');
       } else {
         await adminProductsService.createProduct(productData);
-        alert('Producto creado exitosamente');
+        toast.success('Producto creado exitosamente');
       }
 
       setUploadProgress(100);
@@ -296,6 +297,7 @@ const AdminProductForm: React.FC = () => {
     } catch (err: any) {
       console.error('Error saving product:', err);
       setError(err.response?.data?.error?.message || 'Error al guardar producto');
+      toast.error(err.response?.data?.error?.message || 'Error al guardar producto');
       setUploadProgress(0);
     } finally {
       setIsSaving(false);

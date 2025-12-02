@@ -274,10 +274,16 @@ const Profile: React.FC = () => {
                               order.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                               'bg-yellow-100 text-yellow-700'
                             }`}>
-                              {order.status}
+                              {order.status === 'PENDING' && 'Pendiente'}
+                              {order.status === 'PROCESSING' && 'Procesando'}
+                              {order.status === 'PAID' && 'Pagado'}
+                              {order.status === 'SHIPPED' && 'Enviado'}
+                              {order.status === 'DELIVERED' && 'Entregado'}
+                              {order.status === 'CANCELLED' && 'Cancelado'}
+                              {order.status === 'REFUNDED' && 'Reembolsado'}
                             </span>
                             <span className="font-bold text-lg text-primary">
-                              ${order.total_amount.toFixed(2)}
+                              ${Number(order.total_amount).toFixed(2)}
                             </span>
                           </div>
                         </div>

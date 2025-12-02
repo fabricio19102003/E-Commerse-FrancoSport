@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import type { Product } from '@/types';
 
+import toast from 'react-hot-toast';
+
 import { useConfirm } from '@/hooks/useConfirm';
 
 const AdminProducts: React.FC = () => {
@@ -34,6 +36,7 @@ const AdminProducts: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active');
   const { confirm } = useConfirm();
 
   // Fetch products from API
@@ -46,6 +49,9 @@ const AdminProducts: React.FC = () => {
       if (searchTerm) filters.search = searchTerm;
       if (selectedCategory) filters.category_id = selectedCategory;
       if (selectedBrand) filters.brand_id = selectedBrand;
+      
+      if (statusFilter === 'active') filters.is_active = true;
+      if (statusFilter === 'inactive') filters.is_active = false;
 
       const response = await adminProductsService.getProducts(filters);
       setProducts(response.data);
@@ -59,7 +65,7 @@ const AdminProducts: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [searchTerm, selectedCategory, selectedBrand]);
+  }, [searchTerm, selectedCategory, selectedBrand, statusFilter]);
 
   // Handle delete product
   const handleDelete = async (productId: number) => {
@@ -74,11 +80,12 @@ const AdminProducts: React.FC = () => {
 
     try {
       await adminProductsService.deleteProduct(productId);
-      alert('Producto eliminado exitosamente');
-      fetchProducts(); // Refresh list
+      toast.success('Producto eliminado exitosamente');
+      // Update local state to remove product immediately
+      setProducts(prev => prev.filter(p => p.id !== productId));
     } catch (err: any) {
       console.error('Error deleting product:', err);
-      alert(err.response?.data?.error?.message || 'Error al eliminar producto');
+      toast.error(err.response?.data?.error?.message || 'Error al eliminar producto');
     }
   };
 
@@ -87,9 +94,10 @@ const AdminProducts: React.FC = () => {
     try {
       await adminProductsService.toggleProductStatus(productId);
       fetchProducts(); // Refresh list
+      toast.success('Estado actualizado');
     } catch (err: any) {
       console.error('Error toggling status:', err);
-      alert(err.response?.data?.error?.message || 'Error al cambiar estado');
+      toast.error(err.response?.data?.error?.message || 'Error al cambiar estado');
     }
   };
 
@@ -214,6 +222,17 @@ const AdminProducts: React.FC = () => {
             <option value="1">Franco Sport</option>
             <option value="2">Racing Elite</option>
             <option value="3">Legacy</option>
+          </select>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
+          >
+            <option value="all">Todos los estados</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos / Eliminados</option>
           </select>
         </div>
       </div>

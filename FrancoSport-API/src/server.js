@@ -16,6 +16,7 @@ import productRoutes from './routes/product.routes.js';
 import cartRoutes from './routes/cart.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import userRoutes from './routes/user.routes.js';
+import paymentRoutes from './routes/payment.routes.js';
 
 // Import admin routes
 import adminProductsRoutes from './routes/admin/products.routes.js';
@@ -28,6 +29,7 @@ import adminCouponsRoutes from './routes/admin/coupons.routes.js';
 import adminShippingRoutes from './routes/admin/shipping.routes.js';
 import adminReviewsRoutes from './routes/admin/reviews.routes.js';
 import adminPromotionsRoutes from './routes/admin/promotions.routes.js';
+import adminPaymentRoutes from './routes/admin/payment.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import reviewRoutes from './routes/review.routes.js';
@@ -82,6 +84,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/promotions', promotionRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Admin API Routes
 app.use('/api/admin/products', adminProductsRoutes);
@@ -94,6 +97,7 @@ app.use('/api/admin/coupons', adminCouponsRoutes);
 app.use('/api/admin/shipping', adminShippingRoutes);
 app.use('/api/admin/reviews', adminReviewsRoutes);
 app.use('/api/admin/promotions', adminPromotionsRoutes);
+app.use('/api/admin/payment', adminPaymentRoutes);
 
 // Upload Routes
 app.use('/api/upload', uploadRoutes);

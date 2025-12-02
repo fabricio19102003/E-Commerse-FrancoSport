@@ -33,8 +33,10 @@ export const getOrders = async (filters?: {
   search?: string;
   page?: number;
   limit?: number;
+  startDate?: string;
+  endDate?: string;
 }) => {
-  const response = await api.get<{ success: boolean; data: Order[]; pagination: any }>(
+  const response = await api.get<{ success: boolean; data: Order[]; pagination: any; totalRevenue: number }>(
     '/admin/orders',
     { params: filters }
   );

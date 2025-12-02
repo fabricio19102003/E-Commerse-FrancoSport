@@ -7,8 +7,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { ROUTES } from '@/constants/routes';
 import * as ordersService from '@/api/admin/orders.service';
+import { adminPaymentService } from '@/api/admin/payment.service';
 import {
   ArrowLeft,
   Package,
@@ -75,12 +77,24 @@ const AdminOrderDetail: React.FC = () => {
         });
       }
       
-      alert('Estado actualizado exitosamente');
+      toast.success('Estado actualizado exitosamente');
       setIsEditingStatus(false);
       fetchOrder(); // Reload data
     } catch (err) {
       console.error('Error updating status:', err);
-      alert('Error al actualizar el estado');
+      toast.error('Error al actualizar el estado');
+    }
+  };
+
+  const handleApprovePayment = async () => {
+    try {
+      if (!order.id) return;
+      await adminPaymentService.approvePayment(order.id);
+      toast.success('Pago aprobado exitosamente');
+      fetchOrder();
+    } catch (err) {
+      console.error('Error approving payment:', err);
+      toast.error('Error al aprobar el pago');
     }
   };
 
@@ -200,10 +214,10 @@ const AdminOrderDetail: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-white">
-                      ${parseFloat(item.price).toFixed(2)}
+                      ${parseFloat(item.price_at_purchase || item.price || 0).toFixed(2)}
                     </p>
                     <p className="text-sm text-neutral-500">
-                      ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      ${(parseFloat(item.subtotal || 0)).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -214,25 +228,25 @@ const AdminOrderDetail: React.FC = () => {
             <div className="mt-6 pt-6 border-t border-neutral-800 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-400">Subtotal</span>
-                <span className="text-white">${parseFloat(order.subtotal).toFixed(2)}</span>
+                <span className="text-white">${parseFloat(order.subtotal || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-400">Envío</span>
-                <span className="text-white">${parseFloat(order.shippingCost || 0).toFixed(2)}</span>
+                <span className="text-white">${parseFloat(order.shipping_cost || order.shippingCost || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-400">Impuestos</span>
-                <span className="text-white">${parseFloat(order.taxAmount || 0).toFixed(2)}</span>
+                <span className="text-white">${parseFloat(order.tax_amount || order.taxAmount || 0).toFixed(2)}</span>
               </div>
-              {order.discountAmount > 0 && (
+              {(order.discount_amount || order.discountAmount) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Descuento</span>
-                  <span className="text-green-500">-${parseFloat(order.discountAmount).toFixed(2)}</span>
+                  <span className="text-green-500">-${parseFloat(order.discount_amount || order.discountAmount || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-neutral-800">
                 <span className="text-white">Total</span>
-                <span className="text-primary">${parseFloat(order.totalAmount).toFixed(2)}</span>
+                <span className="text-primary">${parseFloat(order.total_amount || order.totalAmount || 0).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -378,6 +392,34 @@ const AdminOrderDetail: React.FC = () => {
                 <div>
                   <p className="text-sm text-neutral-400">Fecha de Pago</p>
                   <p className="text-sm font-medium text-white">{formatDate(order.paidAt)}</p>
+                </div>
+              )}
+
+              {/* Proof of Payment */}
+              {order.payment_proof_url && (
+                <div className="mt-4 pt-4 border-t border-neutral-800">
+                  <p className="text-sm text-neutral-400 mb-2">Comprobante de Pago</p>
+                  <a 
+                    href={order.payment_proof_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block mb-3"
+                  >
+                    <img 
+                      src={order.payment_proof_url} 
+                      alt="Comprobante" 
+                      className="w-full h-auto rounded-lg border border-neutral-700 hover:opacity-90 transition-opacity" 
+                    />
+                  </a>
+                  {(order.payment_status === 'PENDING' || order.paymentStatus === 'PENDING') && (
+                      <button 
+                        onClick={handleApprovePayment}
+                        className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Aprobar Pago
+                      </button>
+                  )}
                 </div>
               )}
             </div>

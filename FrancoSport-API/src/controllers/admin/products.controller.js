@@ -257,7 +257,20 @@ export const updateProduct = async (req, res, next) => {
 
     const product = await prisma.product.update({
       where: { id: parseInt(id) },
-      data: productData,
+      data: {
+        ...productData,
+        images: images
+          ? {
+              deleteMany: {},
+              create: images.map((img, index) => ({
+                url: img.url,
+                is_primary: img.is_primary || false,
+                display_order: img.display_order || index,
+                alt_text: img.alt_text || productData.name,
+              })),
+            }
+          : undefined,
+      },
       include: {
         category: true,
         brand: true,

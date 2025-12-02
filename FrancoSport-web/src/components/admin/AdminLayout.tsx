@@ -27,6 +27,7 @@ import {
   ChevronRight,
   MessageCircle,
   Zap,
+  CreditCard,
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -96,6 +97,11 @@ const AdminLayout: React.FC = () => {
       label: 'Chat',
       icon: MessageCircle,
       path: '/admin/chat',
+    },
+    {
+      label: 'Pagos',
+      icon: CreditCard,
+      path: ROUTES.ADMIN_PAYMENTS,
     },
     {
       label: 'Configuración',

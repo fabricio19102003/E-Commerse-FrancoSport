@@ -47,6 +47,7 @@ export const ROUTES = {
   ADMIN_SHIPPING: '/admin/envios',
   ADMIN_REVIEWS: '/admin/resenas',
   ADMIN_CHAT: '/admin/chat',
+  ADMIN_PAYMENTS: '/admin/pagos',
   ADMIN_SETTINGS: '/admin/configuracion',
   ADMIN_LOGS: '/admin/logs',
 

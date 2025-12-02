@@ -198,12 +198,18 @@ const OrderDetail: React.FC = () => {
               <div className="text-sm">
                 <p className="font-bold mb-1">Método de Pago</p>
                 <p className="text-text-secondary mb-3">
-                  {order.payment_method === 'CASH_ON_DELIVERY' ? 'Pago contra entrega' : order.payment_method}
+                  {order.payment_method === 'CASH_ON_DELIVERY' ? 'Pago contra entrega' : order.payment_method === 'BANK_TRANSFER' ? 'Transferencia Bancaria' : order.payment_method}
                 </p>
                 <p className="font-bold mb-1">Estado del Pago</p>
                 <Badge variant={order.payment_status === 'PAID' ? 'success' : 'warning'} size="sm">
                   {order.payment_status}
                 </Badge>
+                
+                {order.payment_method === 'BANK_TRANSFER' && order.payment_status === 'PENDING' && (
+                  <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-500 text-xs">
+                    Tu pago está siendo verificado por el administrador.
+                  </div>
+                )}
               </div>
             </Card>
           </div>

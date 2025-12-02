@@ -4,6 +4,7 @@
  */
 
 import prisma from '../utils/prisma.js';
+import { sendOrderConfirmationEmail } from '../services/email.service.js';
 
 /**
  * Get user's orders
@@ -290,8 +291,10 @@ export const createOrder = async (req, res, next) => {
           product_id: item.product_id,
           variant_id: item.variant_id,
           quantity: item.quantity,
-          price: price,
+          price_at_purchase: price,
           subtotal: itemSubtotal,
+          product_name: product.name,
+          variant_name: variant ? variant.variant_name : null,
         });
       }
 
@@ -354,7 +357,8 @@ export const createOrder = async (req, res, next) => {
           shipping_cost: shippingCost,
           tax_amount: 0,
           total_amount: total,
-          // payment_proof_url, // Uncomment if column exists
+          total_amount: total,
+          payment_proof_url: payment_proof_url || undefined,
           items: {
             create: orderItemsData,
           },

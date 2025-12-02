@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { adminPromotionsService } from '@/api/admin/promotions.service';
 import type { Promotion, PromotionFormData } from '@/api/admin/promotions.service';
 import { Button, Card, Badge } from '@/components/ui';
-import { Plus, Edit, Trash2, Calendar, Percent, Zap, X, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, Percent, Zap, X, Loader2, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@/hooks/useConfirm';
+import { uploadImage } from '@/api/upload.service';
 
 const AdminPromotions: React.FC = () => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -12,6 +13,7 @@ const AdminPromotions: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { confirm } = useConfirm();
 
   const [formData, setFormData] = useState<PromotionFormData>({
@@ -88,6 +90,35 @@ const AdminPromotions: React.FC = () => {
       } catch (error) {
         toast.error('Error al eliminar la promoción');
       }
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten archivos de imagen (JPG, PNG)');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no debe superar los 5MB');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const uploadedImage = await uploadImage(file);
+      setFormData({ ...formData, image_url: uploadedImage.url });
+      toast.success('Imagen subida correctamente');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Error al subir la imagen');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -283,14 +314,49 @@ const AdminPromotions: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1">URL Imagen</label>
-                <input
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-                  placeholder="https://..."
-                />
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Imagen Promocional</label>
+                
+                {formData.image_url ? (
+                  <div className="relative rounded-lg overflow-hidden border border-neutral-800 group">
+                    <img 
+                      src={formData.image_url} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, image_url: '' })}
+                        className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-neutral-800 rounded-lg p-8 text-center hover:border-primary/50 transition-colors relative">
+                    {isUploading ? (
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                        <span className="text-sm text-neutral-400">Subiendo imagen...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/jpg, image/webp"
+                          onChange={handleImageUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div className="flex flex-col items-center justify-center">
+                          <Upload className="w-10 h-10 text-neutral-600 mb-3" />
+                          <p className="text-white font-medium mb-1">Haz clic o arrastra una imagen</p>
+                          <p className="text-sm text-neutral-500">JPG, PNG, WEBP (Máx. 5MB)</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

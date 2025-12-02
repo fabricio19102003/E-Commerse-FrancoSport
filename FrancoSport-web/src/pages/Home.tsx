@@ -9,15 +9,20 @@ import {
   Star,
   Trophy,
   ArrowRight,
-  ShoppingBag,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
 import { useExperiment } from '@/hooks/useExperiment';
-import { getCategories } from '@/api/products.service';
-import type { Category } from '@/types';
+import { getCategories, getProducts } from '@/api/products.service';
+import type { Category, Product } from '@/types';
 import { getActivePromotion } from '@/api/promotions.service';
 import type { Promotion } from '@/api/admin/promotions.service';
+import { CardContainer, CardBody, CardItem } from '@/components/ui/3d-card';
+import { useCartStore } from '@/store/cartStore';
+import toast from 'react-hot-toast';
+import { SmartAssistant } from '@/components/shop/SmartAssistant';
+import { Sparkles } from 'lucide-react';
+import { CommunityCarousel } from '@/components/home/CommunityCarousel';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -103,45 +108,48 @@ const Home: React.FC = () => {
     'Torneo Relámpago',
   ];
 
-  // Productos destacados (placeholder - reemplazar con datos reales)
-  const featuredProducts = [
-    {
-      id: 1,
-      name: 'Edición Limitada Carbono',
-      price: 180,
-      category: 'Elite',
-      image: 'https://images.unsplash.com/photo-1577212017184-80cc3c0bcb85?auto=format&fit=crop&q=80&w=800',
-      tag: 'Más Vendido',
-      description: 'Diseño aerodinámico en escala de grises. No es suerte, es esfuerzo.',
-    },
-    {
-      id: 2,
-      name: 'Red Racing Beast',
-      price: 165,
-      category: 'Pro',
-      image: 'https://images.unsplash.com/photo-1620799140408-ed5341cd2431?auto=format&fit=crop&q=80&w=800',
-      tag: 'Nuevo',
-      description: 'Geometría agresiva para dominar la pista. Tonos rojos vibrantes.',
-    },
-    {
-      id: 3,
-      name: 'White Cross Series',
-      price: 150,
-      category: 'Sport',
-      image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=800',
-      tag: null,
-      description: 'Elegancia y rendimiento. Detalles en negro y rojo sobre base blanca.',
-    },
-    {
-      id: 4,
-      name: 'Polo Promo 86',
-      price: 120,
-      category: 'Casual',
-      image: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?auto=format&fit=crop&q=80&w=800',
-      tag: 'Edición Especial',
-      description: 'Vivir, estudiar, triunfar. La elegancia del legado.',
-    },
-  ];
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+
+  // Fetch Most Wanted Products (Dynamic Logic)
+  const [mostWantedProducts, setMostWantedProducts] = useState<{
+    bestSeller: Product | null;
+    newest: Product | null;
+    special: Product | null;
+  }>({ bestSeller: null, newest: null, special: null });
+
+  useEffect(() => {
+    const fetchMostWanted = async () => {
+      try {
+        const [bestSellerRes, newestRes, specialRes] = await Promise.all([
+          getProducts({ sort_by: 'popularity', limit: 1, in_stock: true }),
+          getProducts({ sort_by: 'newest', limit: 1, in_stock: true }),
+          getProducts({ tags: ['Edición Especial'], limit: 1, in_stock: true }) // Try tag first
+        ]);
+
+        // Fallback for special edition if no tag found: use featured
+        let specialProduct = specialRes.data[0];
+        if (!specialProduct) {
+             const featuredRes = await getProducts({ is_featured: true, limit: 1, in_stock: true });
+             specialProduct = featuredRes.data[0];
+        }
+
+        setMostWantedProducts({
+          bestSeller: bestSellerRes.data[0] || null,
+          newest: newestRes.data[0] || null,
+          special: specialProduct || null,
+        });
+      } catch (err) {
+        console.error('Error fetching most wanted products:', err);
+      }
+    };
+    fetchMostWanted();
+  }, []);
+
+  const mostWantedCards = [
+    { product: mostWantedProducts.bestSeller, label: 'Más Vendido', color: 'bg-amber-500' },
+    { product: mostWantedProducts.newest, label: 'Nuevo Ingreso', color: 'bg-blue-500' },
+    { product: mostWantedProducts.special, label: 'Edición Especial', color: 'bg-purple-500' },
+  ].filter(item => item.product); // Filter out nulls
 
   return (
     <div className="min-h-screen">
@@ -338,48 +346,62 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {featuredProducts.map((product) => (
-              <div key={product.id} className="group relative">
-                <div className="relative overflow-hidden bg-surface aspect-[3/4] border border-surface-lighter rounded-lg">
-                  {/* Tag */}
-                  {product.tag && (
-                    <div className="absolute top-4 left-0 bg-white text-black text-xs font-bold px-3 py-1 z-10 uppercase tracking-wider transform -skew-x-12">
-                      {product.tag}
-                    </div>
-                  )}
-
-                  {/* Imagen */}
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
-                  />
-
-                  {/* Overlay con botón */}
-                  <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black to-transparent">
-                    <Button
-                      onClick={() => navigate(ROUTES.CART)}
-                      className="w-full"
-                      leftIcon={<ShoppingBag size={18} />}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {mostWantedCards.map((item) => (
+              <div key={item.product?.id} className="flex justify-center w-full">
+                <CardContainer className="inter-var w-full">
+                  <CardBody className="bg-white relative group/card dark:hover:shadow-2xl dark:hover:shadow-emerald-500/[0.1] dark:bg-black dark:border-white/[0.2] border-black/[0.1] w-full h-auto rounded-xl p-6 border">
+                    <CardItem
+                      translateZ="50"
+                      className="text-xl font-bold text-neutral-600 dark:text-white"
                     >
-                      Añadir
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Info del producto */}
-                <div className="mt-4">
-                  <p className="text-xs text-primary font-bold uppercase tracking-widest mb-1">
-                    {product.category}
-                  </p>
-                  <h3 className="text-xl font-bold uppercase italic mb-1 group-hover:text-primary transition-colors">
-                    {product.name}
-                  </h3>
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-black">Bs. {product.price}</span>
-                  </div>
-                </div>
+                      {item.product?.name}
+                    </CardItem>
+                    <CardItem
+                      as="p"
+                      translateZ="60"
+                      className="text-neutral-500 text-sm max-w-sm mt-2 dark:text-neutral-300"
+                    >
+                      {item.product?.description}
+                    </CardItem>
+                    <CardItem translateZ="100" className="w-full mt-4">
+                      <div className="relative h-72 w-full flex items-center justify-center">
+                        <img
+                          src={item.product?.images?.[0]?.url || 'https://images.unsplash.com/photo-1577212017184-80cc3c0bcb85?auto=format&fit=crop&q=80&w=800'}
+                          height="1000"
+                          width="1000"
+                          className="h-full w-full object-contain rounded-xl group-hover/card:shadow-xl transition-transform duration-300"
+                          alt={item.product?.name}
+                        />
+                        <span className={`absolute top-0 right-0 ${item.color} text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    </CardItem>
+                    <div className="flex justify-between items-center mt-20">
+                      <CardItem
+                        translateZ={20}
+                        as="button"
+                        className="px-4 py-2 rounded-xl text-xs font-normal dark:text-white"
+                      >
+                        Bs. {item.product?.price}
+                      </CardItem>
+                      <CardItem
+                        translateZ={20}
+                        as="button"
+                        onClick={() => {
+                          if (item.product) {
+                            useCartStore.getState().addItem(item.product);
+                            toast.success('Producto agregado al carrito');
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl bg-black dark:bg-white dark:text-black text-white text-xs font-bold"
+                      >
+                        Comprar ahora
+                      </CardItem>
+                    </div>
+                  </CardBody>
+                </CardContainer>
               </div>
             ))}
           </div>
@@ -513,6 +535,9 @@ const Home: React.FC = () => {
       </section>
 
       {/* Estilos para el ticker */}
+      {/* Brand Showcase Section */}
+      <CommunityCarousel />
+
       <style>{`
         .ticker-container {
           overflow: hidden;
@@ -534,6 +559,27 @@ const Home: React.FC = () => {
           }
         }
       `}</style>
+      {/* Smart Assistant FAB */}
+      <button
+        onClick={() => setIsAssistantOpen(true)}
+        className="fixed bottom-6 left-6 z-40 bg-black dark:bg-white text-white dark:text-black p-4 rounded-full shadow-2xl hover:scale-110 transition-transform group flex items-center gap-2 pr-6"
+      >
+        <div className="relative">
+          <Sparkles className="w-6 h-6" />
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+          </span>
+        </div>
+        <span className="font-bold text-sm hidden group-hover:inline-block transition-all duration-300">
+          Asistente IA
+        </span>
+      </button>
+
+      <SmartAssistant 
+        isOpen={isAssistantOpen} 
+        onClose={() => setIsAssistantOpen(false)} 
+      />
     </div>
   );
 };

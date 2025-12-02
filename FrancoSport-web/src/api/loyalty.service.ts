@@ -10,7 +10,7 @@ export interface LoyaltyTransaction {
     created_at: string;
     order?: {
         order_number: string;
-        total: number;
+        total_amount: number;
     };
 }
 

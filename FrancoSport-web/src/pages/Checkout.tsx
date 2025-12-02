@@ -11,6 +11,8 @@ import { ROUTES } from '@/constants/routes';
 import type { Address } from '@/types';
 import toast from 'react-hot-toast';
 import { logBeginCheckout, logPurchase } from '@/api/analytics.service';
+import { paymentService } from '@/api/payment.service';
+import type { PaymentConfig } from '@/api/payment.service';
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
@@ -27,6 +29,7 @@ const Checkout: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'QR_TRANSFER'>('CASH_ON_DELIVERY');
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
 
   // Loyalty Points
   const [redeemPoints, setRedeemPoints] = useState(0);
@@ -66,7 +69,19 @@ const Checkout: React.FC = () => {
     logBeginCheckout(items, subtotal);
 
     loadAddresses();
+    fetchPaymentConfig();
   }, [isAuthenticated, items, navigate, user]);
+
+  const fetchPaymentConfig = async () => {
+    try {
+      const response = await paymentService.getPaymentConfig();
+      if (response.success) {
+        setPaymentConfig(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching payment config:', error);
+    }
+  };
 
   const loadAddresses = async () => {
     try {
@@ -360,12 +375,25 @@ const Checkout: React.FC = () => {
                         {paymentMethod === 'QR_TRANSFER' && (
                           <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-4">
                             <div className="flex justify-center bg-white p-4 rounded-lg border border-border max-w-xs mx-auto">
-                              <img 
-                                src="/assets/qr-payment.jpg" 
-                                alt="Código QR para pago" 
-                                className="w-full h-auto object-contain"
-                              />
+                              {paymentConfig?.qr_code_url ? (
+                                <img 
+                                  src={paymentConfig.qr_code_url} 
+                                  alt="Código QR para pago" 
+                                  className="w-full h-auto object-contain"
+                                />
+                              ) : (
+                                <div className="text-center p-4 text-black">
+                                  <p className="font-bold">Código QR no disponible</p>
+                                  <p className="text-sm">Contacte al administrador</p>
+                                </div>
+                              )}
                             </div>
+                            
+                            {paymentConfig?.instructions && (
+                              <div className="bg-surface-light p-3 rounded-lg border border-border">
+                                <p className="text-sm text-text-secondary whitespace-pre-wrap">{paymentConfig.instructions}</p>
+                              </div>
+                            )}
                             
                             <div className="border-t border-border pt-4">
                               <label className="block text-sm font-medium mb-2">
@@ -471,7 +499,7 @@ const Checkout: React.FC = () => {
                         {items.map(item => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span>{item.quantity}x {item.product?.name}</span>
-                            <span className="font-medium">${item.subtotal.toFixed(2)}</span>
+                            <span className="font-medium">${(item.subtotal || 0).toFixed(2)}</span>
                           </div>
                         ))}
                       </div>

@@ -11,17 +11,13 @@ import { ROUTES } from '@/constants/routes';
 import { adminOrdersService } from '@/api/admin';
 import {
   Search,
-  Filter,
   Eye,
   Clock,
   Package,
   Truck,
   CheckCircle,
   XCircle,
-  Calendar,
   DollarSign,
-  User,
-  MapPin,
   Download,
   Loader2,
 } from 'lucide-react';
@@ -42,6 +38,8 @@ const AdminOrders: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Fetch orders from API
   const fetchOrders = async () => {
@@ -53,9 +51,20 @@ const AdminOrders: React.FC = () => {
       if (searchTerm) filters.search = searchTerm;
       if (statusFilter) filters.status = statusFilter;
       if (paymentFilter) filters.payment_status = paymentFilter;
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
 
       const response = await adminOrdersService.getOrders(filters);
       setOrders(response.data);
+
+      if (startDate || endDate) {
+        setStats(prev => ({
+          ...prev,
+          totalRevenue: response.totalRevenue || 0
+        }));
+      } else {
+        fetchStats();
+      }
     } catch (err: any) {
       console.error('Error fetching orders:', err);
       setError(err.response?.data?.error?.message || 'Error al cargar pedidos');
@@ -81,8 +90,8 @@ const AdminOrders: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-    fetchStats();
-  }, [searchTerm, statusFilter, paymentFilter]);
+    // fetchStats is now called inside fetchOrders if needed
+  }, [searchTerm, statusFilter, paymentFilter, startDate, endDate]);
 
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { label: string; color: string; icon: React.FC<any> }> = {
@@ -162,7 +171,9 @@ const AdminOrders: React.FC = () => {
         <div className="bg-[#1A1A1A] border border-neutral-800 rounded-xl p-6">
           <div className="flex items-center space-x-3 mb-3">
             <DollarSign className="w-5 h-5 text-green-500" />
-            <h4 className="text-sm font-medium text-neutral-400">Ingresos Totales</h4>
+            <h4 className="text-sm font-medium text-neutral-400">
+              {startDate || endDate ? 'Ingresos (Filtrado)' : 'Ingresos Totales'}
+            </h4>
           </div>
           <p className="text-2xl font-black text-white">${stats.totalRevenue.toFixed(2)}</p>
         </div>
@@ -234,6 +245,24 @@ const AdminOrders: React.FC = () => {
             <option value="FAILED">Fallido</option>
             <option value="REFUNDED">Reembolsado</option>
           </select>
+
+          {/* Date Filters */}
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary w-full"
+              placeholder="Fecha inicio"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary w-full"
+              placeholder="Fecha fin"
+            />
+          </div>
         </div>
       </div>
 

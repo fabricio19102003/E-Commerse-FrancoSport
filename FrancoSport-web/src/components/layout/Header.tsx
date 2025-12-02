@@ -100,7 +100,7 @@ const Header: React.FC = () => {
         <Container>
           <div className="flex items-center justify-between h-20">
             {/* Logo con estilo "FRANCOSPORT" */}
-            <Link to={ROUTES.HOME} className="flex items-center gap-2 group">
+            <Link to={ROUTES.HOME} className="flex items-center gap-2 group mr-12">
               <span className="text-3xl font-black italic tracking-tighter">
                 FRANCO<span className="text-primary">SPORT</span>
               </span>

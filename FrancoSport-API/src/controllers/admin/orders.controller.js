@@ -15,13 +15,26 @@ const prisma = new PrismaClient();
  */
 export const getOrders = async (req, res, next) => {
   try {
-    const { status, payment_status, search, page = 1, limit = 20 } = req.query;
+    const { status, payment_status, search, page = 1, limit = 20, startDate, endDate } = req.query;
 
     // Build filters
     const where = {};
 
     if (status) where.status = status;
     if (payment_status) where.payment_status = payment_status;
+
+    if (startDate || endDate) {
+      where.created_at = {};
+      if (startDate) {
+        where.created_at.gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Set to end of day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.created_at.lte = end;
+      }
+    }
 
     if (search) {
       where.OR = [
@@ -34,6 +47,18 @@ export const getOrders = async (req, res, next) => {
 
     // Get total count
     const total = await prisma.order.count({ where });
+
+    // Calculate total revenue for filtered orders
+    const revenueResult = await prisma.order.aggregate({
+      where: {
+        ...where,
+        payment_status: 'PAID' // Only count paid orders for revenue
+      },
+      _sum: {
+        total_amount: true,
+      },
+    });
+    const totalRevenue = revenueResult._sum.total_amount || 0;
 
     // Get orders
     const orders = await prisma.order.findMany({
@@ -82,6 +107,7 @@ export const getOrders = async (req, res, next) => {
     res.json({
       success: true,
       data: formattedOrders,
+      totalRevenue,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

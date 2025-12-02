@@ -268,6 +268,7 @@ model Order {
   payment_status      PaymentStatus @default(PENDING)
   payment_method      String        @db.VarChar(50)
   payment_id          String?       @db.VarChar(255)
+  payment_proof_url   String?       @db.VarChar(255)
   subtotal            Decimal       @db.Decimal(10, 2)
   shipping_cost       Decimal       @db.Decimal(10, 2)
   tax_amount          Decimal       @db.Decimal(10, 2)
@@ -506,4 +507,18 @@ model Promotion {
   product Product? @relation(fields: [product_id], references: [id])
 
   @@map("promotions")
+}
+
+// ===== PAYMENT CONFIG =====
+
+model PaymentConfig {
+  id          Int      @id @default(autoincrement())
+  method_name String   @unique @db.VarChar(50) // e.g., "BANK_TRANSFER"
+  qr_code_url String?  @db.VarChar(255)
+  instructions String? @db.Text
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("payment_configs")
 }

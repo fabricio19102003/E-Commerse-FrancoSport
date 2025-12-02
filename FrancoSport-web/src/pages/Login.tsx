@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Button, Input, Card } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { Mail, Lock, ArrowLeft } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 import { useAuthStore } from '@/store';
 import toast from 'react-hot-toast';
-
+import { WavyBackground } from '@/components/ui/wavy-background';
 import { logLogin } from '@/api/analytics.service';
 
 const Login: React.FC = () => {
@@ -50,117 +50,122 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-surface to-background p-4">
-      <Card className="w-full max-w-md" variant="elevated">
+    <WavyBackground className="max-w-4xl mx-auto pb-40">
+      <div className="relative w-full max-w-md mx-auto px-4">
         {/* Back Button */}
         <button
           onClick={() => navigate(ROUTES.HOME)}
-          className="flex items-center gap-2 text-text-secondary hover:text-primary transition-colors mb-6"
+          className="absolute -top-16 left-0 flex items-center gap-2 text-white/80 hover:text-white transition-colors z-50"
         >
           <ArrowLeft className="h-5 w-5" />
           <span>Volver al inicio</span>
         </button>
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gradient mb-2">Iniciar Sesión</h1>
-          <p className="text-text-secondary">Bienvenido de vuelta a Franco Sport</p>
+        {/* 3D Card Effect Container */}
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-red-600 to-violet-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+          <div className="relative bg-white/10 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-8 transform transition-all hover:scale-[1.01] duration-300">
+            
+            {/* Logo & Header */}
+            <div className="text-center mb-8">
+              <div className="mx-auto w-24 h-24 mb-4 relative group/logo cursor-pointer">
+                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
+                <img 
+                  src="/assets/logo-login.jpg" 
+                  alt="FrancoSport Logo" 
+                  className="relative w-full h-full object-cover rounded-full border-2 border-white/50 shadow-lg transform group-hover/logo:rotate-12 transition-transform duration-500"
+                />
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
+                Bienvenido de nuevo
+              </h2>
+              <p className="text-gray-200">
+                Ingresa a tu cuenta para continuar
+              </p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1 ml-1">
+                  Correo Electrónico
+                </label>
+                <div className="relative group/input">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400 group-focus-within/input:text-white transition-colors" />
+                  </div>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl bg-black/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm backdrop-blur-sm"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1 ml-1">
+                  Contraseña
+                </label>
+                <div className="relative group/input">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400 group-focus-within/input:text-white transition-colors" />
+                  </div>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl bg-black/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm backdrop-blur-sm"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center text-gray-300 cursor-pointer hover:text-white transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.remember_me}
+                    onChange={(e) => setFormData({ ...formData, remember_me: e.target.checked })}
+                    className="rounded border-gray-500 bg-black/20 text-primary focus:ring-primary mr-2" 
+                  />
+                  Recordarme
+                </label>
+                <Link
+                  to={ROUTES.FORGOT_PASSWORD}
+                  className="font-medium text-primary-300 hover:text-primary-200 transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+
+              <Button
+                type="submit"
+                isLoading={isLoading}
+                fullWidth
+                size="lg"
+                className="bg-gradient-to-r from-primary to-red-600 hover:from-primary-dark hover:to-red-700 text-white shadow-lg shadow-primary/30 transform hover:-translate-y-0.5 transition-all duration-200 rounded-xl font-bold text-lg border-none"
+              >
+                Iniciar Sesión
+              </Button>
+            </form>
+
+            <div className="mt-8 text-center">
+              <p className="text-gray-300">
+                ¿No tienes una cuenta?{' '}
+                <Link
+                  to={ROUTES.REGISTER}
+                  className="font-bold text-white hover:text-primary-300 transition-colors hover:underline"
+                >
+                  Regístrate aquí
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Email"
-            type="email"
-            placeholder="tu@email.com"
-            leftIcon={<Mail className="h-5 w-5" />}
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            required
-            fullWidth
-          />
-
-          <Input
-            label="Contraseña"
-            type="password"
-            placeholder="••••••••"
-            leftIcon={<Lock className="h-5 w-5" />}
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-            fullWidth
-            autoComplete="current-password"
-          />
-
-          {/* Remember Me & Forgot Password */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.remember_me}
-                onChange={(e) =>
-                  setFormData({ ...formData, remember_me: e.target.checked })
-                }
-                className="w-4 h-4 rounded border-surface-lighter bg-surface text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-              />
-              <span className="text-sm text-text-secondary">Recordarme</span>
-            </label>
-
-            <Link
-              to={ROUTES.FORGOT_PASSWORD}
-              className="text-sm text-primary hover:underline"
-            >
-              ¿Olvidaste tu contraseña?
-            </Link>
-          </div>
-
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            isLoading={isLoading}
-          >
-            Ingresar
-          </Button>
-        </form>
-
-        {/* Divider */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-surface-lighter" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-surface text-text-tertiary">¿No tienes cuenta?</span>
-          </div>
-        </div>
-
-        {/* Register Link */}
-        <Button
-          variant="outline"
-          size="lg"
-          fullWidth
-          onClick={() => navigate(ROUTES.REGISTER)}
-        >
-          Crear cuenta nueva
-        </Button>
-
-
-
-        {/* Footer Note */}
-        <p className="text-xs text-text-tertiary text-center mt-6">
-          Al iniciar sesión, aceptas nuestros{' '}
-          <Link to="/terminos" className="text-primary hover:underline">
-            Términos y Condiciones
-          </Link>{' '}
-          y{' '}
-          <Link to="/privacidad" className="text-primary hover:underline">
-            Política de Privacidad
-          </Link>
-        </p>
-      </Card>
-    </div>
+      </div>
+    </WavyBackground>
   );
 };
 
