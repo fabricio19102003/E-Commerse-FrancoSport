@@ -28,6 +28,7 @@ import {
   MessageCircle,
   Zap,
   CreditCard,
+  FileText,
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -107,6 +108,11 @@ const AdminLayout: React.FC = () => {
       label: 'Configuración',
       icon: Settings,
       path: '/admin/configuracion',
+    },
+    {
+      label: 'Reportes',
+      icon: FileText,
+      path: ROUTES.ADMIN_REPORTS,
     },
   ];
 

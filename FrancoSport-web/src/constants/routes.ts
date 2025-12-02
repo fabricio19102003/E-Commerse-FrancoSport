@@ -49,6 +49,7 @@ export const ROUTES = {
   ADMIN_CHAT: '/admin/chat',
   ADMIN_PAYMENTS: '/admin/pagos',
   ADMIN_SETTINGS: '/admin/configuracion',
+  ADMIN_REPORTS: '/admin/reportes',
   ADMIN_LOGS: '/admin/logs',
 
   // ===== Error Routes =====

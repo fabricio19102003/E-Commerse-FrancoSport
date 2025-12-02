@@ -46,6 +46,7 @@ import {
   AdminShipping,
   AdminReviews,
   AdminSettings,
+  AdminReports,
   AdminChat,
   AdminPromotions,
   AdminPaymentSettings,
@@ -224,6 +225,7 @@ function App() {
             
             {/* Settings */}
             <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
+            <Route path={ROUTES.ADMIN_REPORTS} element={<AdminReports />} />
           </Route>
 
           {/* ===== ERROR ROUTES ===== */}

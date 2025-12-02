@@ -348,7 +348,7 @@ const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {mostWantedCards.map((item) => (
-              <div key={item.product?.id} className="flex justify-center w-full">
+              <div key={`${item.label}-${item.product?.id}`} className="flex justify-center w-full">
                 <CardContainer className="inter-var w-full">
                   <CardBody className="bg-white relative group/card dark:hover:shadow-2xl dark:hover:shadow-emerald-500/[0.1] dark:bg-black dark:border-white/[0.2] border-black/[0.1] w-full h-auto rounded-xl p-6 border">
                     <CardItem

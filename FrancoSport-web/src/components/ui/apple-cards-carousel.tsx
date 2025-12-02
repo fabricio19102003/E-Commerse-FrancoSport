@@ -162,7 +162,7 @@ export const Card = ({
 }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { onCardClose, currentIndex } = useContext(CarouselContext);
+  const { onCardClose } = useContext(CarouselContext);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -271,6 +271,7 @@ export const BlurImage = ({
   src,
   className,
   alt,
+  fill, // Destructure fill to prevent it from being passed to img via rest
   ...rest
 }: any) => {
   const [isLoading, setLoading] = useState(true);
@@ -287,7 +288,6 @@ export const BlurImage = ({
       height={height}
       loading="lazy"
       decoding="async"
-      blurDataURL={typeof src === "string" ? src : undefined}
       alt={alt ? alt : "Background of a beautiful view"}
       {...rest}
     />
