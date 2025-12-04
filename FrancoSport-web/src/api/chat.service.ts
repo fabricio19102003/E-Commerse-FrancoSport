@@ -65,6 +65,11 @@ export const chatService = {
         }
     },
 
+    sendAIMessage: async (message: string) => {
+        const response = await axios.post<{ success: boolean; data: { userMessage: ChatMessage; aiMessage: ChatMessage } }>('/chat/ai', { message });
+        return response.data.data;
+    },
+
     onMessage: (callback: (message: ChatMessage) => void) => {
         if (socket) {
             socket.on('receive_message', callback);
@@ -87,6 +92,11 @@ export const chatService = {
     getMyHistory: async () => {
         const response = await axios.get<{ success: boolean; data: ChatMessage[] }>('/chat/my-history');
         return response.data.data;
+    },
+
+    deleteMyHistory: async () => {
+        const response = await axios.delete<{ success: boolean }>('/chat/my-history');
+        return response.data;
     },
 
     getConversations: async () => {

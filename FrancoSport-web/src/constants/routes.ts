@@ -50,6 +50,7 @@ export const ROUTES = {
   ADMIN_PAYMENTS: '/admin/pagos',
   ADMIN_SETTINGS: '/admin/configuracion',
   ADMIN_REPORTS: '/admin/reportes',
+  ADMIN_MARKETING: '/admin/marketing',
   ADMIN_LOGS: '/admin/logs',
 
   // ===== Error Routes =====

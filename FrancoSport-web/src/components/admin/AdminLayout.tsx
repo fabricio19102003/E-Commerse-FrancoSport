@@ -29,9 +29,11 @@ import {
   Zap,
   CreditCard,
   FileText,
+  Mail,
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
+  // Force rebuild
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
@@ -113,6 +115,11 @@ const AdminLayout: React.FC = () => {
       label: 'Reportes',
       icon: FileText,
       path: ROUTES.ADMIN_REPORTS,
+    },
+    {
+      label: 'Marketing',
+      icon: Mail,
+      path: ROUTES.ADMIN_MARKETING,
     },
   ];
 

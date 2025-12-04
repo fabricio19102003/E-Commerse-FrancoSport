@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Badge } from '@/components/ui';
@@ -109,11 +110,11 @@ const OrderDetail: React.FC = () => {
                             <p className="text-sm text-text-secondary">{item.variant_name}</p>
                           )}
                         </div>
-                        <p className="font-bold text-lg">${item.subtotal.toFixed(2)}</p>
+                        <p className="font-bold text-lg">{formatCurrency(item.subtotal)}</p>
                       </div>
                       <div className="mt-2 flex justify-between items-center">
                         <span className="text-sm text-text-secondary">
-                          Cantidad: {item.quantity} x ${item.price_at_purchase.toFixed(2)}
+                          Cantidad: {item.quantity} x {formatCurrency(item.price_at_purchase)}
                         </span>
                       </div>
                     </div>
@@ -153,21 +154,21 @@ const OrderDetail: React.FC = () => {
               <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between text-text-secondary">
                   <span>Subtotal</span>
-                  <span>${order.subtotal.toFixed(2)}</span>
+                  <span>{formatCurrency(order.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-text-secondary">
                   <span>Envío</span>
-                  <span>${order.shipping_cost.toFixed(2)}</span>
+                  <span>{formatCurrency(order.shipping_cost)}</span>
                 </div>
                 {order.discount_amount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Descuento</span>
-                    <span>-${order.discount_amount.toFixed(2)}</span>
+                    <span>-{formatCurrency(order.discount_amount)}</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-2 flex justify-between font-bold text-lg text-primary">
                   <span>Total</span>
-                  <span>${order.total_amount.toFixed(2)}</span>
+                  <span>{formatCurrency(order.total_amount)}</span>
                 </div>
               </div>
             </Card>

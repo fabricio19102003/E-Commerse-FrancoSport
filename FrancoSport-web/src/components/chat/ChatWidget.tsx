@@ -13,6 +13,8 @@ const ChatWidget: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated && isOpen) {
       // Fetch history
@@ -30,7 +32,12 @@ const ChatWidget: React.FC = () => {
       
       if (socket) {
         chatService.onMessage((msg) => {
-          setMessages((prev) => [...prev, msg]);
+          // Only add if it's not already in the list (avoid duplicates if we mix socket/rest)
+          setMessages((prev) => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          
           if (!isOpen && !msg.is_from_user) {
             setUnreadCount(prev => prev + 1);
             toast.success('Tienes un nuevo mensaje de soporte');
@@ -38,7 +45,11 @@ const ChatWidget: React.FC = () => {
         });
 
         chatService.onMessageSent((msg) => {
-          setMessages((prev) => [...prev, msg]);
+           // Only add if it's not already in the list
+           setMessages((prev) => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
         });
       }
     }
@@ -55,12 +66,24 @@ const ChatWidget: React.FC = () => {
     }
   }, [messages, isOpen]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || isLoading) return;
 
-    chatService.sendMessage(newMessage);
+    const messageText = newMessage;
     setNewMessage('');
+    setIsLoading(true);
+
+    try {
+      // Send via socket (Human Support)
+      chatService.sendMessage(messageText);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Error al enviar mensaje');
+      setNewMessage(messageText);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isAuthenticated) return null;

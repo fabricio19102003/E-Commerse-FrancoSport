@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
@@ -33,7 +34,7 @@ const Checkout: React.FC = () => {
 
   // Loyalty Points
   const [redeemPoints, setRedeemPoints] = useState(0);
-  const pointsValue = redeemPoints / 100; // 100 points = $1
+  const pointsValue = redeemPoints / 100; // 100 points = Bs. 1
   const maxRedeemablePoints = user ? Math.min(user.loyalty_points, Math.floor(subtotal * 100)) : 0;
 
   // New Address Form
@@ -499,7 +500,7 @@ const Checkout: React.FC = () => {
                         {items.map(item => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span>{item.quantity}x {item.product?.name}</span>
-                            <span className="font-medium">${(item.subtotal || 0).toFixed(2)}</span>
+                            <span className="font-medium">{formatCurrency(item.subtotal || 0)}</span>
                           </div>
                         ))}
                       </div>
@@ -527,11 +528,11 @@ const Checkout: React.FC = () => {
                 <div className="space-y-2 text-sm mb-4">
                   <div className="flex justify-between text-text-secondary">
                     <span>Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>{formatCurrency(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-text-secondary">
                     <span>Envío</span>
-                    <span>$0.00</span>
+                    <span>{formatCurrency(0)}</span>
                   </div>
                   
                   {/* Loyalty Points Redemption */}
@@ -558,7 +559,7 @@ const Checkout: React.FC = () => {
                       </div>
                       <div className="flex justify-between text-xs mt-1">
                         <span>0</span>
-                        <span className="font-bold text-primary">{redeemPoints} pts (-${pointsValue.toFixed(2)})</span>
+                        <span className="font-bold text-primary">{redeemPoints} pts (-{formatCurrency(pointsValue)})</span>
                       </div>
                     </div>
                   )}
@@ -566,13 +567,13 @@ const Checkout: React.FC = () => {
                   {redeemPoints > 0 && (
                     <div className="flex justify-between text-green-600 font-medium">
                       <span>Descuento (Puntos)</span>
-                      <span>-${pointsValue.toFixed(2)}</span>
+                      <span>-{formatCurrency(pointsValue)}</span>
                     </div>
                   )}
 
                   <div className="border-t border-border pt-2 flex justify-between font-bold text-lg text-primary">
                     <span>Total</span>
-                    <span>${(subtotal - pointsValue).toFixed(2)}</span>
+                    <span>{formatCurrency(subtotal - pointsValue)}</span>
                   </div>
                 </div>
                 <div className="text-xs text-text-tertiary text-center">

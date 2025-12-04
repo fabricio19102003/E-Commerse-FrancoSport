@@ -13,7 +13,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
-import { useAuthStore, useCartStore, useUIStore } from '@/store';
+import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '@/store';
 import toast from 'react-hot-toast';
 
 const Header: React.FC = () => {
@@ -27,9 +27,9 @@ const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { itemsCount: cartItemsCount } = useCartStore();
   const { openCartDrawer } = useUIStore();
+  const { items: wishlistItems } = useWishlistStore();
   
-  // TODO: Implementar wishlist cuando esté listo
-  const wishlistCount = 0;
+  const wishlistCount = wishlistItems.length;
 
   // Detectar scroll
   useEffect(() => {

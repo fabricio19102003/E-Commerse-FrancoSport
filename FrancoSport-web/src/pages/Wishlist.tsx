@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card } from '@/components/ui';
@@ -92,11 +93,11 @@ const Wishlist: React.FC = () => {
                   <div className="mt-auto pt-4 border-t border-border flex items-center justify-between gap-4">
                     <div className="flex flex-col">
                       <span className="text-xl font-bold text-primary">
-                        ${Number(product.price).toFixed(2)}
+                        {formatCurrency(Number(product.price))}
                       </span>
                       {product.compare_at_price && product.compare_at_price > product.price && (
                         <span className="text-xs text-text-tertiary line-through">
-                          ${Number(product.compare_at_price).toFixed(2)}
+                          {formatCurrency(Number(product.compare_at_price))}
                         </span>
                       )}
                     </div>

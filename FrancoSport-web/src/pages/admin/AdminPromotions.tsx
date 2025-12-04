@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { adminPromotionsService } from '@/api/admin/promotions.service';
 import type { Promotion, PromotionFormData } from '@/api/admin/promotions.service';
 import { Button, Card, Badge } from '@/components/ui';
-import { Plus, Edit, Trash2, Calendar, Percent, Zap, X, Loader2, Upload } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, Percent, Zap, X, Loader2, Upload, Bell } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@/hooks/useConfirm';
 import { uploadImage } from '@/api/upload.service';
+import { getProducts, getCategories } from '@/api/products.service';
+import type { Product, Category } from '@/types';
 
 const AdminPromotions: React.FC = () => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -16,6 +18,10 @@ const AdminPromotions: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const { confirm } = useConfirm();
 
+  // Data for selects
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
   const [formData, setFormData] = useState<PromotionFormData>({
     title: '',
     description: '',
@@ -24,11 +30,14 @@ const AdminPromotions: React.FC = () => {
     end_date: '',
     is_active: true,
     image_url: '',
-    product_id: undefined
+    product_ids: [],
+    category_ids: [],
+    notify_users: false
   });
 
   useEffect(() => {
     fetchPromotions();
+    fetchData();
   }, []);
 
   const fetchPromotions = async () => {
@@ -43,6 +52,19 @@ const AdminPromotions: React.FC = () => {
     }
   };
 
+  const fetchData = async () => {
+    try {
+      const [productsData, categoriesData] = await Promise.all([
+        getProducts({ limit: 1000 }), // Fetch all for now
+        getCategories()
+      ]);
+      setProducts(productsData.data);
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
   const handleCreateClick = () => {
     setSelectedPromotion(null);
     setFormData({
@@ -53,7 +75,9 @@ const AdminPromotions: React.FC = () => {
       end_date: '',
       is_active: true,
       image_url: '',
-      product_id: undefined
+      product_ids: [],
+      category_ids: [],
+      notify_users: false
     });
     setShowModal(true);
   };
@@ -68,7 +92,9 @@ const AdminPromotions: React.FC = () => {
       end_date: new Date(promotion.end_date).toISOString().slice(0, 16),
       is_active: promotion.is_active,
       image_url: promotion.image_url || '',
-      product_id: promotion.product_id
+      product_ids: promotion.products?.map(p => p.id) || [],
+      category_ids: promotion.categories?.map(c => c.id) || [],
+      notify_users: false // Always reset to false on edit to avoid accidental spam
     });
     setShowModal(true);
   };
@@ -97,13 +123,11 @@ const AdminPromotions: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Solo se permiten archivos de imagen (JPG, PNG)');
       return;
     }
 
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('La imagen no debe superar los 5MB');
       return;
@@ -132,6 +156,9 @@ const AdminPromotions: React.FC = () => {
       } else {
         await adminPromotionsService.createPromotion(formData);
         toast.success('Promoción creada correctamente');
+        if (formData.notify_users) {
+          toast.success('Se ha iniciado el envío de correos');
+        }
       }
       setShowModal(false);
       fetchPromotions();
@@ -195,17 +222,23 @@ const AdminPromotions: React.FC = () => {
                   </p>
                 )}
 
-                <div className="flex items-center gap-4 mb-6">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {promotion.discount_percent && (
-                    <div className="flex items-center gap-1 text-primary font-bold">
-                      <Percent className="w-4 h-4" />
+                    <div className="flex items-center gap-1 text-primary font-bold text-sm bg-primary/10 px-2 py-1 rounded">
+                      <Percent className="w-3 h-3" />
                       <span>{promotion.discount_percent}% OFF</span>
                     </div>
                   )}
-                  {promotion.product && (
-                    <div className="flex items-center gap-1 text-neutral-300 text-sm">
-                      <Zap className="w-4 h-4" />
-                      <span className="truncate max-w-[150px]">{promotion.product.name}</span>
+                  {promotion.products && promotion.products.length > 0 && (
+                    <div className="flex items-center gap-1 text-neutral-300 text-sm bg-neutral-800 px-2 py-1 rounded">
+                      <Zap className="w-3 h-3" />
+                      <span>{promotion.products.length} Productos</span>
+                    </div>
+                  )}
+                  {promotion.categories && promotion.categories.length > 0 && (
+                    <div className="flex items-center gap-1 text-neutral-300 text-sm bg-neutral-800 px-2 py-1 rounded">
+                      <Zap className="w-3 h-3" />
+                      <span>{promotion.categories.length} Categorías</span>
                     </div>
                   )}
                 </div>
@@ -279,15 +312,62 @@ const AdminPromotions: React.FC = () => {
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-400 mb-1">ID Producto (Opcional)</label>
-                  <input
-                    type="number"
-                    value={formData.product_id || ''}
-                    onChange={(e) => setFormData({ ...formData, product_id: parseInt(e.target.value) || undefined })}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-                  />
+              </div>
+
+              {/* Multi-select for Products */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Productos (Selección Múltiple)</label>
+                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-2 h-48 overflow-y-auto">
+                  <div className="space-y-1">
+                    {products.map(product => (
+                      <label key={product.id} className="flex items-center gap-2 p-2 hover:bg-neutral-800 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.product_ids?.includes(product.id)}
+                          onChange={(e) => {
+                            const currentIds = formData.product_ids || [];
+                            if (e.target.checked) {
+                              setFormData({ ...formData, product_ids: [...currentIds, product.id] });
+                            } else {
+                              setFormData({ ...formData, product_ids: currentIds.filter(id => id !== product.id) });
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-neutral-700 bg-neutral-800 text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-white">{product.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
+                <p className="text-xs text-neutral-500 mt-1">Selecciona los productos que aplicarán para esta promoción.</p>
+              </div>
+
+              {/* Multi-select for Categories */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Categorías (Selección Múltiple)</label>
+                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-2 h-48 overflow-y-auto">
+                  <div className="space-y-1">
+                    {categories.map(category => (
+                      <label key={category.id} className="flex items-center gap-2 p-2 hover:bg-neutral-800 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.category_ids?.includes(category.id)}
+                          onChange={(e) => {
+                            const currentIds = formData.category_ids || [];
+                            if (e.target.checked) {
+                              setFormData({ ...formData, category_ids: [...currentIds, category.id] });
+                            } else {
+                              setFormData({ ...formData, category_ids: currentIds.filter(id => id !== category.id) });
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-neutral-700 bg-neutral-800 text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-white">{category.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-500 mt-1">Selecciona las categorías que aplicarán para esta promoción.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -369,6 +449,23 @@ const AdminPromotions: React.FC = () => {
                 />
                 <label htmlFor="is_active" className="text-sm font-medium text-white">Promoción Activa</label>
               </div>
+
+              {/* Notify Users Checkbox */}
+              {!selectedPromotion && (
+                <div className="flex items-center gap-2 bg-primary/10 p-3 rounded-lg border border-primary/20">
+                  <input
+                    type="checkbox"
+                    id="notify_users"
+                    checked={formData.notify_users}
+                    onChange={(e) => setFormData({ ...formData, notify_users: e.target.checked })}
+                    className="w-4 h-4 rounded border-neutral-800 text-primary focus:ring-primary bg-neutral-900"
+                  />
+                  <label htmlFor="notify_users" className="text-sm font-medium text-white flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary" />
+                    Notificar a todos los usuarios por correo
+                  </label>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 mt-6">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)}>

@@ -77,17 +77,17 @@ export const getUsers = async (req, res, next) => {
 
       return {
         id: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         phone: user.phone,
         role: user.role,
-        isActive: user.is_active,
-        emailVerified: user.email_verified,
-        ordersCount: user._count.orders,
-        totalSpent,
-        createdAt: user.created_at,
-        lastLogin: user.last_login,
+        is_active: user.is_active,
+        email_verified: user.email_verified,
+        orders_count: user._count.orders,
+        total_spent: totalSpent,
+        created_at: user.created_at,
+        last_login: user.last_login,
       };
     });
 
@@ -167,6 +167,9 @@ export const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { first_name, last_name, email, phone, role, is_active, email_verified } = req.body;
+
+    console.log('DEBUG: updateUser body:', req.body);
+    console.log('DEBUG: email_verified value:', email_verified, 'Type:', typeof email_verified);
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({

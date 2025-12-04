@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
@@ -283,7 +284,7 @@ const Profile: React.FC = () => {
                               {order.status === 'REFUNDED' && 'Reembolsado'}
                             </span>
                             <span className="font-bold text-lg text-primary">
-                              ${Number(order.total_amount).toFixed(2)}
+                              {formatCurrency(Number(order.total_amount))}
                             </span>
                           </div>
                         </div>
@@ -330,9 +331,9 @@ const Profile: React.FC = () => {
                 <div className="bg-surface-light p-4 rounded-lg mb-6">
                   <h3 className="font-bold mb-2">¿Cómo funciona?</h3>
                   <ul className="list-disc list-inside text-sm text-text-secondary space-y-1">
-                    <li>Gana <strong>1 punto</strong> por cada $1 gastado en tus compras.</li>
+                    <li>Gana <strong>1 punto</strong> por cada Bs. 1 gastado en tus compras.</li>
                     <li>Canjea tus puntos en el checkout para obtener descuentos.</li>
-                    <li><strong>100 puntos = $1 de descuento.</strong></li>
+                    <li><strong>100 puntos = Bs. 1 de descuento.</strong></li>
                   </ul>
                 </div>
 

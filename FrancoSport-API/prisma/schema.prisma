@@ -86,7 +86,8 @@ model Category {
   // Relations
   parent   Category?  @relation("CategoryToCategory", fields: [parent_id], references: [id])
   children Category[] @relation("CategoryToCategory")
-  products Product[]
+  products   Product[]
+  promotions Promotion[]
 
   @@map("categories")
 }
@@ -499,12 +500,13 @@ model Promotion {
   end_date         DateTime
   is_active        Boolean  @default(true)
   image_url        String?  @db.VarChar(255)
-  product_id       Int?
+  // product_id removed in favor of many-to-many relation
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
   // Relations
-  product Product? @relation(fields: [product_id], references: [id])
+  products   Product[]
+  categories Category[]
 
   @@map("promotions")
 }

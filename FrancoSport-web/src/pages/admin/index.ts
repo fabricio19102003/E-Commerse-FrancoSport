@@ -20,5 +20,6 @@ export { default as AdminReviews } from './AdminReviews';
 export { default as AdminChat } from './AdminChat';
 export { default as AdminPromotions } from './AdminPromotions';
 export { default as AdminPaymentSettings } from './AdminPaymentSettings';
+export { default as AdminMarketing } from './AdminMarketing';
 export { default as AdminReports } from './AdminReports';
 export { default as AdminSettings } from './AdminSettings';

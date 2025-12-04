@@ -30,6 +30,7 @@ import adminShippingRoutes from './routes/admin/shipping.routes.js';
 import adminReviewsRoutes from './routes/admin/reviews.routes.js';
 import adminPromotionsRoutes from './routes/admin/promotions.routes.js';
 import adminPaymentRoutes from './routes/admin/payment.routes.js';
+import adminMarketingRoutes from './routes/admin/marketing.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import reviewRoutes from './routes/review.routes.js';
@@ -37,6 +38,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import loyaltyRoutes from './routes/loyalty.routes.js';
 import promotionRoutes from './routes/promotions.routes.js';
+import wishlistRoutes from './routes/wishlist.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -98,6 +100,7 @@ app.use('/api/admin/shipping', adminShippingRoutes);
 app.use('/api/admin/reviews', adminReviewsRoutes);
 app.use('/api/admin/promotions', adminPromotionsRoutes);
 app.use('/api/admin/payment', adminPaymentRoutes);
+app.use('/api/admin/marketing', adminMarketingRoutes);
 
 // Upload Routes
 app.use('/api/upload', uploadRoutes);
@@ -114,6 +117,9 @@ app.use('/api/chat', chatRoutes);
 // Loyalty Routes
 app.use('/api/loyalty', loyaltyRoutes);
 
+// Wishlist Routes
+app.use('/api/wishlist', wishlistRoutes);
+
 // Sitemap
 app.use('/', sitemapRoutes);
 
@@ -127,7 +133,7 @@ app.use(errorHandler);
 
 // ===== START SERVER =====
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Create HTTP server
 const httpServer = createServer(app);

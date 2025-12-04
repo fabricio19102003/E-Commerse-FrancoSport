@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui';
@@ -160,10 +161,10 @@ const Cart: React.FC = () => {
                       {/* Price */}
                       <div className="text-right">
                         <p className="text-xs text-text-tertiary mb-1">
-                          ${Number(item.price_at_add).toFixed(2)} x {item.quantity}
+                          {formatCurrency(Number(item.price_at_add))} x {item.quantity}
                         </p>
                         <p className="text-xl font-bold text-primary">
-                          ${Number(item.subtotal).toFixed(2)}
+                          {formatCurrency(Number(item.subtotal))}
                         </p>
                       </div>
                     </div>
@@ -181,7 +182,7 @@ const Cart: React.FC = () => {
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-text-secondary">
                   <span>Subtotal</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>{formatCurrency(total)}</span>
                 </div>
                 <div className="flex justify-between text-text-secondary">
                   <span>Envío</span>
@@ -189,14 +190,14 @@ const Cart: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-text-secondary">
                   <span>Impuestos estimados</span>
-                  <span>$0.00</span>
+                  <span>{formatCurrency(0)}</span>
                 </div>
               </div>
 
               <div className="border-t border-border pt-4 mb-8">
                 <div className="flex justify-between items-end">
                   <span className="font-bold text-lg">Total</span>
-                  <span className="text-3xl font-black text-primary">${total.toFixed(2)}</span>
+                  <span className="text-3xl font-black text-primary">{formatCurrency(total)}</span>
                 </div>
               </div>
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Badge, Card } from '@/components/ui';
@@ -238,11 +239,11 @@ const ProductDetail: React.FC = () => {
 
             <div className="flex items-end gap-4 mb-6">
               <span className="text-4xl font-bold text-primary">
-                ${Number(product.price).toFixed(2)}
+                {formatCurrency(Number(product.price))}
               </span>
               {product.compare_at_price && product.compare_at_price > product.price && (
                 <span className="text-xl text-text-tertiary line-through mb-1">
-                  ${Number(product.compare_at_price).toFixed(2)}
+                  {formatCurrency(Number(product.compare_at_price))}
                 </span>
               )}
               {product.compare_at_price && product.compare_at_price > product.price && (
@@ -321,7 +322,7 @@ const ProductDetail: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 text-sm text-text-secondary">
                 <div className="flex items-center gap-2">
                   <Truck className="w-5 h-5 text-primary" />
-                  <span>Envío gratis &gt; $1000</span>
+                  <span>Envío gratis &gt; Bs. 1000</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-primary" />

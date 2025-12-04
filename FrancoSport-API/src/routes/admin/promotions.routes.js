@@ -11,5 +11,6 @@ router.get('/:id', promotionsController.getPromotion);
 router.post('/', promotionsController.createPromotion);
 router.put('/:id', promotionsController.updatePromotion);
 router.delete('/:id', promotionsController.deletePromotion);
+router.post('/:id/notify', promotionsController.notifyUsers);
 
 export default router;

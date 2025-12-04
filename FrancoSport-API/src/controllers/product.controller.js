@@ -125,7 +125,52 @@ export const getProducts = async (req, res, next) => {
       prisma.product.count({ where }),
     ]);
 
-    // Calculate average rating for each product
+    // Fetch active promotions
+    const now = new Date();
+    const activePromotions = await prisma.promotion.findMany({
+      where: {
+        is_active: true,
+        start_date: { lte: now },
+        end_date: { gte: now }
+      },
+      include: {
+        products: { select: { id: true } },
+        categories: { select: { id: true } }
+      }
+    });
+
+    // Helper to apply promotion
+    const applyPromotion = (product) => {
+      let bestDiscount = 0;
+      let promotionId = null;
+
+      for (const promo of activePromotions) {
+        const isProductInPromo = promo.products.some(p => p.id === product.id);
+        const isCategoryInPromo = promo.categories.some(c => c.id === product.category_id);
+
+        if (isProductInPromo || isCategoryInPromo) {
+          if (promo.discount_percent > bestDiscount) {
+            bestDiscount = promo.discount_percent;
+            promotionId = promo.id;
+          }
+        }
+      }
+
+      if (bestDiscount > 0) {
+        const originalPrice = parseFloat(product.price);
+        const discountAmount = (originalPrice * bestDiscount) / 100;
+        return {
+          ...product,
+          price: originalPrice - discountAmount,
+          compare_at_price: originalPrice,
+          discount_percent: bestDiscount,
+          promotion_id: promotionId
+        };
+      }
+      return product;
+    };
+
+    // Calculate average rating and apply promotions
     const productsWithRating = products.map((product) => {
       const avgRating =
         product.reviews.length > 0
@@ -133,9 +178,11 @@ export const getProducts = async (req, res, next) => {
           : 0;
 
       const { reviews, ...productData } = product;
+      
+      const productWithPromo = applyPromotion(productData);
 
       return {
-        ...productData,
+        ...productWithPromo,
         avg_rating: Math.round(avgRating * 10) / 10,
         reviews_count: reviews.length,
       };
@@ -200,7 +247,7 @@ export const getProductBySlug = async (req, res, next) => {
         tags: {
           include: {
             tag: true,
-          },
+            },
         },
       },
     });
@@ -215,6 +262,36 @@ export const getProductBySlug = async (req, res, next) => {
       });
     }
 
+    // Fetch active promotions for single product
+    const now = new Date();
+    const activePromotions = await prisma.promotion.findMany({
+      where: {
+        is_active: true,
+        start_date: { lte: now },
+        end_date: { gte: now },
+        OR: [
+          { products: { some: { id: product.id } } },
+          { categories: { some: { id: product.category_id } } }
+        ]
+      },
+      orderBy: { discount_percent: 'desc' },
+      take: 1
+    });
+
+    let productData = { ...product };
+    if (activePromotions.length > 0) {
+      const promo = activePromotions[0];
+      const originalPrice = parseFloat(product.price);
+      const discountAmount = (originalPrice * promo.discount_percent) / 100;
+      productData = {
+        ...productData,
+        price: originalPrice - discountAmount,
+        compare_at_price: originalPrice,
+        discount_percent: promo.discount_percent,
+        promotion_id: promo.id
+      };
+    }
+
     // Calculate average rating
     const avgRating =
       product.reviews.length > 0
@@ -224,7 +301,7 @@ export const getProductBySlug = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        ...product,
+        ...productData,
         avg_rating: Math.round(avgRating * 10) / 10,
         reviews_count: product.reviews.length,
       },

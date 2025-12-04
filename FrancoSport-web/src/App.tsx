@@ -19,6 +19,7 @@ import Products from '@/pages/Products';
 import ProductDetail from '@/pages/ProductDetail';
 import Categories from '@/pages/Categories';
 import Brands from '@/pages/Brands';
+import PromotionDetails from '@/pages/PromotionDetails';
 import Cart from '@/pages/Cart';
 import Checkout from '@/pages/Checkout';
 import Profile from '@/pages/Profile';
@@ -50,6 +51,7 @@ import {
   AdminChat,
   AdminPromotions,
   AdminPaymentSettings,
+  AdminMarketing,
 } from '@/pages/admin';
 
 import ChatWidget from '@/components/chat/ChatWidget';
@@ -112,6 +114,7 @@ function App() {
             <Route path={ROUTES.PRODUCT_DETAIL} element={<ProductDetail />} />
             <Route path={ROUTES.CATEGORIES} element={<Categories />} />
             <Route path={ROUTES.BRANDS} element={<Brands />} />
+            <Route path="/promociones/:id" element={<PromotionDetails />} />
             {/* TODO: Agregar más rutas públicas aquí */}
           </Route>
 
@@ -226,6 +229,7 @@ function App() {
             {/* Settings */}
             <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
             <Route path={ROUTES.ADMIN_REPORTS} element={<AdminReports />} />
+            <Route path={ROUTES.ADMIN_MARKETING} element={<AdminMarketing />} />
           </Route>
 
           {/* ===== ERROR ROUTES ===== */}

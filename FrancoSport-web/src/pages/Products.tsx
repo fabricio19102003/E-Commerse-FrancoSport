@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
+
+import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Card, Badge, Button } from '@/components/ui';
@@ -316,7 +318,7 @@ const Products: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">Bs.</span>
                         <input
                           type="number"
                           placeholder="Min"
@@ -327,7 +329,7 @@ const Products: React.FC = () => {
                       </div>
                       <span className="text-text-tertiary">-</span>
                       <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">Bs.</span>
                         <input
                           type="number"
                           placeholder="Max"
@@ -447,11 +449,11 @@ const Products: React.FC = () => {
                       <div className="flex flex-col">
                         <div className="flex items-baseline gap-2">
                           <span className="text-2xl font-black text-white">
-                            ${parseFloat(product.price.toString()).toFixed(2)}
+                            {formatCurrency(Number(product.price))}
                           </span>
                           {product.compare_at_price && parseFloat(product.compare_at_price.toString()) > parseFloat(product.price.toString()) && (
                             <span className="text-sm text-text-tertiary line-through font-medium">
-                              ${parseFloat(product.compare_at_price.toString()).toFixed(2)}
+                              {formatCurrency(Number(product.compare_at_price))}
                             </span>
                           )}
                         </div>

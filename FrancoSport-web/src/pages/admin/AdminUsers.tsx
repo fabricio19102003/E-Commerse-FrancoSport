@@ -54,7 +54,8 @@ const AdminUsers: React.FC = () => {
     last_name: '',
     email: '',
     role: '',
-    phone: ''
+    phone: '',
+    email_verified: false
   });
   const [passwordForm, setPasswordForm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,11 +135,12 @@ const AdminUsers: React.FC = () => {
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
     setEditForm({
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      role: user.role,
-      phone: user.phone || ''
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      role: user.role || 'CUSTOMER',
+      phone: user.phone || '',
+      email_verified: user.email_verified ?? false
     });
     setShowEditModal(true);
   };
@@ -343,10 +345,7 @@ const AdminUsers: React.FC = () => {
                     Rol
                   </th>
                   <th className="text-left text-sm font-medium text-neutral-400 px-6 py-4">
-                    Pedidos
-                  </th>
-                  <th className="text-left text-sm font-medium text-neutral-400 px-6 py-4">
-                    Total Gastado
+                    Verificación
                   </th>
                   <th className="text-left text-sm font-medium text-neutral-400 px-6 py-4">
                     Estado
@@ -378,12 +377,6 @@ const AdminUsers: React.FC = () => {
                             <div className="flex items-center space-x-2 text-xs text-neutral-400">
                               <Calendar className="w-3 h-3" />
                               <span>Registrado {formatDate(user.created_at)}</span>
-                              {emailVerified && (
-                                <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 bg-green-500/10 text-green-500 rounded">
-                                  <CheckCircle className="w-3 h-3" />
-                                  <span>Verificado</span>
-                                </span>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -406,20 +399,25 @@ const AdminUsers: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-neutral-300">{(user as any).orders_count || 0}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-white">
-                          ${((user as any).total_spent || 0).toFixed(2)}
-                        </p>
+                        {emailVerified ? (
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-medium border border-green-500/20">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Verificado</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-yellow-500/10 text-yellow-500 rounded-full text-xs font-medium border border-yellow-500/20">
+                            <X className="w-3.5 h-3.5" />
+                            <span>Pendiente</span>
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {isActive ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">
                             Activo
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-neutral-500/10 text-neutral-500">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
                             Inactivo
                           </span>
                         )}
@@ -518,17 +516,44 @@ const AdminUsers: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1">Rol</label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                  className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
-                >
-                  <option value="CUSTOMER">Cliente</option>
-                  <option value="MODERATOR">Moderador</option>
-                  <option value="ADMIN">Administrador</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-1">Rol</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                  >
+                    <option value="CUSTOMER">Cliente</option>
+                    <option value="MODERATOR">Moderador</option>
+                    <option value="ADMIN">Administrador</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-1">Verificación Email</label>
+                  <select
+                    value={editForm.email_verified ? 'true' : 'false'}
+                    onChange={(e) => setEditForm({ ...editForm, email_verified: e.target.value === 'true' })}
+                    className="w-full bg-black border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                  >
+                    <option value="true">Verificado</option>
+                    <option value="false">No Verificado</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Read-only Info */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-neutral-800">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Fecha de Registro</label>
+                  <p className="text-sm text-white">{formatDate(selectedUser.created_at)}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Último Acceso</label>
+                  <p className="text-sm text-white">
+                    {selectedUser.last_login ? formatDate(selectedUser.last_login) : 'Nunca'}
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 mt-6">

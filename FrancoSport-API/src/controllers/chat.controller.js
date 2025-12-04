@@ -4,6 +4,7 @@
  */
 
 import prisma from '../utils/prisma.js';
+import { geminiService } from '../services/gemini.service.js';
 
 /**
  * Get chat history for the current user
@@ -98,6 +99,88 @@ export const getUserHistory = async (req, res, next) => {
     res.json({
       success: true,
       data: messages,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Send message to AI assistant
+ * POST /api/chat/ai
+ */
+export const sendMessageToAI = async (req, res, next) => {
+  try {
+    const { message } = req.body;
+    const userId = req.user.id;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required',
+      });
+    }
+
+    // 1. Save user message
+    const userMessage = await prisma.chatMessage.create({
+      data: {
+        user_id: userId,
+        message: message,
+        is_from_user: true,
+        is_read: true, // AI reads it immediately
+      },
+    });
+
+    // 2. Get recent history for context (last 10 messages)
+    const history = await prisma.chatMessage.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    });
+    
+    // Reverse to chronological order for AI
+    const chronologicalHistory = history.reverse();
+
+    // 3. Generate AI response
+    const aiResponseText = await geminiService.generateResponse(message, chronologicalHistory);
+
+    // 4. Save AI response
+    const aiMessage = await prisma.chatMessage.create({
+      data: {
+        user_id: userId,
+        message: aiResponseText,
+        is_from_user: false,
+        is_read: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        userMessage,
+        aiMessage,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Delete chat history for current user
+ * DELETE /api/chat/my-history
+ */
+export const deleteMyHistory = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    await prisma.chatMessage.deleteMany({
+      where: { user_id: userId },
+    });
+
+    res.json({
+      success: true,
+      message: 'Chat history deleted',
     });
   } catch (error) {
     next(error);

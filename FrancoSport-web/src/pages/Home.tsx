@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, CardContent } from '@/components/ui';
@@ -15,7 +16,7 @@ import { ROUTES } from '@/constants/routes';
 import { useExperiment } from '@/hooks/useExperiment';
 import { getCategories, getProducts } from '@/api/products.service';
 import type { Category, Product } from '@/types';
-import { getActivePromotion } from '@/api/promotions.service';
+import { getActivePromotions } from '@/api/promotions.service';
 import type { Promotion } from '@/api/admin/promotions.service';
 import { CardContainer, CardBody, CardItem } from '@/components/ui/3d-card';
 import { useCartStore } from '@/store/cartStore';
@@ -28,7 +29,8 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [activePromotion, setActivePromotion] = useState<Promotion | null>(null);
+  const [activePromotions, setActivePromotions] = useState<Promotion[]>([]);
+  const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
   
   // A/B Test: Hero CTA Text
   const heroCtaText = useExperiment('hero_cta_text', ['Ver Catálogo', 'Ofertas Exclusivas']);
@@ -41,22 +43,33 @@ const Home: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch Active Promotion
+  // Fetch Active Promotions
   useEffect(() => {
-    const fetchPromotion = async () => {
+    const fetchPromotions = async () => {
       try {
-        const promo = await getActivePromotion();
-        setActivePromotion(promo);
+        const promos = await getActivePromotions();
+        setActivePromotions(promos);
       } catch (err) {
-        console.error('Error fetching active promotion:', err);
+        console.error('Error fetching active promotions:', err);
       }
     };
-    fetchPromotion();
+    fetchPromotions();
   }, []);
+
+  // Carousel for promotions
+  useEffect(() => {
+    if (activePromotions.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentPromoIndex((prev) => (prev + 1) % activePromotions.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activePromotions]);
 
   // Countdown timer
   useEffect(() => {
-    if (!activePromotion) return;
+    if (activePromotions.length === 0) return;
+    
+    const activePromotion = activePromotions[currentPromoIndex];
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
@@ -83,7 +96,7 @@ const Home: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activePromotion]);
+  }, [activePromotions, currentPromoIndex]);
 
   // Fetch Categories
   const [categories, setCategories] = useState<Category[]>([]);
@@ -159,7 +172,7 @@ const Home: React.FC = () => {
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent z-10" />
           <img
-            src={activePromotion?.image_url || "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=2000"}
+            src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=2000"
             alt="Franco Sport Hero"
             className={`w-full h-full object-cover transition-transform duration-[15000ms] ease-linear ${
               activeHeroSlide === 0 ? 'scale-110' : 'scale-100'
@@ -210,24 +223,48 @@ const Home: React.FC = () => {
           </div>
         </Container>
 
-        {/* Promotion Banner Bar */}
-        {activePromotion && (
-          <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/40 backdrop-blur-md border-t border-white/10 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-purple-500/20 to-primary/20 animate-pulse" />
+        {/* Promotion Banner Bar - Carousel */}
+        {activePromotions.length > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/60 backdrop-blur-md border-t border-white/10 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10 animate-pulse" />
             <Container>
               <div className="relative flex flex-col md:flex-row items-center justify-between py-4 gap-4">
-                {/* Left: Title & Description */}
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary text-black font-black text-xs px-2 py-1 uppercase tracking-wider transform -skew-x-12">
-                    Oferta Especial
-                  </div>
+                {/* Left: Image & Info */}
+                <div className="flex items-center gap-4 flex-1">
+                  {activePromotions[currentPromoIndex].image_url && (
+                    <img 
+                      src={activePromotions[currentPromoIndex].image_url} 
+                      alt={activePromotions[currentPromoIndex].title} 
+                      className="w-16 h-16 object-cover rounded-lg border border-white/20 hidden md:block"
+                    />
+                  )}
                   <div className="flex flex-col">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-primary text-black font-black text-xs px-2 py-0.5 uppercase tracking-wider transform -skew-x-12">
+                        Oferta Especial
+                      </span>
+                      {activePromotions[currentPromoIndex].discount_percent && (
+                        <span className="text-primary font-bold text-sm">
+                          {activePromotions[currentPromoIndex].discount_percent}% OFF
+                        </span>
+                      )}
+                      {activePromotions.length > 1 && (
+                        <div className="flex gap-1 ml-2">
+                          {activePromotions.map((_, idx) => (
+                            <div 
+                              key={idx}
+                              className={`w-1.5 h-1.5 rounded-full ${idx === currentPromoIndex ? 'bg-white' : 'bg-white/30'}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <h3 className="text-xl md:text-2xl font-black italic uppercase text-white leading-none">
-                      {activePromotion.title}
+                      {activePromotions[currentPromoIndex].title}
                     </h3>
-                    {activePromotion.description && (
-                      <p className="text-sm text-gray-300 hidden md:block">
-                        {activePromotion.description}
+                    {activePromotions[currentPromoIndex].description && (
+                      <p className="text-sm text-gray-300 hidden md:block max-w-md truncate">
+                        {activePromotions[currentPromoIndex].description}
                       </p>
                     )}
                   </div>
@@ -235,7 +272,7 @@ const Home: React.FC = () => {
 
                 {/* Right: Countdown & CTA */}
                 <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-4 bg-black/30 px-4 py-2 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-4 bg-black/30 px-4 py-2 rounded-lg border border-white/10 hidden lg:flex">
                     <div className="flex flex-col items-center">
                       <span className="text-2xl font-bold font-mono text-primary leading-none">
                         {String(timeLeft.days).padStart(2, '0')}
@@ -267,7 +304,7 @@ const Home: React.FC = () => {
 
                   <Button 
                     size="sm" 
-                    onClick={() => navigate(ROUTES.PRODUCTS)}
+                    onClick={() => navigate(`/promociones/${activePromotions[currentPromoIndex].id}`)}
                     className="whitespace-nowrap shadow-lg shadow-primary/20"
                   >
                     Ver Oferta <ArrowRight className="w-4 h-4 ml-2" />
@@ -384,7 +421,7 @@ const Home: React.FC = () => {
                         as="button"
                         className="px-4 py-2 rounded-xl text-xs font-normal dark:text-white"
                       >
-                        Bs. {item.product?.price}
+                        {formatCurrency(Number(item.product?.price))}
                       </CardItem>
                       <CardItem
                         translateZ={20}

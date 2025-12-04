@@ -9,11 +9,14 @@ export interface Promotion {
     end_date: string;
     is_active: boolean;
     image_url?: string;
-    product_id?: number;
-    product?: {
+    products?: {
         id: number;
         name: string;
-    };
+    }[];
+    categories?: {
+        id: number;
+        name: string;
+    }[];
     created_at: string;
     updated_at: string;
 }
@@ -26,7 +29,9 @@ export interface PromotionFormData {
     end_date: string;
     is_active?: boolean;
     image_url?: string;
-    product_id?: number;
+    product_ids?: number[];
+    category_ids?: number[];
+    notify_users?: boolean;
 }
 
 export const adminPromotionsService = {
