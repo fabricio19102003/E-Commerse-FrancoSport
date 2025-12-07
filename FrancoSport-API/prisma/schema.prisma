@@ -524,3 +524,19 @@ model PaymentConfig {
 
   @@map("payment_configs")
 }
+
+// ===== COMMUNITY =====
+
+model CommunityPost {
+  id            Int      @id @default(autoincrement())
+  title         String   @db.VarChar(200)
+  category      String   @db.VarChar(100)
+  description   String   @db.Text
+  image_url     String   @db.VarChar(255)
+  is_active     Boolean  @default(true)
+  display_order Int      @default(0)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("community_posts")
+}

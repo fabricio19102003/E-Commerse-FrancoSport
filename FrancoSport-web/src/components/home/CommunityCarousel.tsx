@@ -1,10 +1,41 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Carousel, Card } from "@/components/ui/apple-cards-carousel";
+import api from "@/api/axios";
+
+interface CommunityPost {
+  id: number;
+  title: string;
+  category: string;
+  description: string;
+  image_url: string;
+}
 
 export function CommunityCarousel() {
-  const cards = data.map((card, index) => (
-    <Card key={card.src} card={card} index={index} />
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await api.get('/community');
+        setPosts(response.data);
+      } catch (error) {
+        console.error('Error fetching community posts:', error);
+      }
+    };
+
+    fetchPosts();
+  }, []);
+
+  if (posts.length === 0) return null;
+
+  const cards = posts.map((post, index) => (
+    <Card key={post.id} card={{
+      category: post.category,
+      title: post.title,
+      src: post.image_url,
+      content: <CommunityContent title={post.title} description={post.description} image={post.image_url} />
+    }} index={index} />
   ));
 
   return (
@@ -17,7 +48,7 @@ export function CommunityCarousel() {
   );
 }
 
-const DummyContent = ({ title, description, image }: { title: string, description: string, image: string }) => {
+const CommunityContent = ({ title, description, image }: { title: string, description: string, image: string }) => {
   return (
     <>
       <div
@@ -40,56 +71,3 @@ const DummyContent = ({ title, description, image }: { title: string, descriptio
     </>
   );
 };
-
-const data = [
-  {
-    category: "Astros de Pando",
-    title: "Bienvenido Astros de Pando",
-    src: "/assets/community/community-1.jpg",
-    content: <DummyContent 
-      title="Astros de Pando se une a la familia." 
-      description="Estamos orgullosos de vestir a los futuros campeones. Gracias por creer en nosotros." 
-      image="/assets/community/community-1.jpg" 
-    />,
-  },
-  {
-    category: "Motocross",
-    title: "Fercho 174",
-    src: "/assets/community/community-2.jpg",
-    content: <DummyContent 
-      title="Adrenalina y Velocidad." 
-      description="Apoyando al talento nacional en cada carrera. Fercho 174 confía en FrancoSport." 
-      image="/assets/community/community-2.jpg" 
-    />,
-  },
-  {
-    category: "Futsal",
-    title: "Mariscal Sucre Joyas",
-    src: "/assets/community/community-3.png",
-    content: <DummyContent 
-      title="Pasión por el Futsal." 
-      description="Bienvenidos Mariscal Sucre Joyas. Listos para brillar en la cancha." 
-      image="/assets/community/community-3.png" 
-    />,
-  },
-  {
-    category: "Promoción",
-    title: "Vaca Díez Promo 86",
-    src: "/assets/community/community-4.jpg",
-    content: <DummyContent 
-      title="Vivir, Estudiar, Triunfar." 
-      description="Celebrando la historia y el legado de la Promo 86 del Vaca Díez." 
-      image="/assets/community/community-4.jpg" 
-    />,
-  },
-  {
-    category: "Racing",
-    title: "Team Racing Cobija",
-    src: "/assets/community/community-5.jpg",
-    content: <DummyContent 
-      title="Team Racing Cobija." 
-      description="Somos la nueva piel del equipo. Velocidad y estilo en cada competencia." 
-      image="/assets/community/community-5.jpg" 
-    />,
-  },
-];

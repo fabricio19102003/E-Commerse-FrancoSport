@@ -121,6 +121,11 @@ const AdminLayout: React.FC = () => {
       icon: Mail,
       path: ROUTES.ADMIN_MARKETING,
     },
+    {
+      label: 'Comunidad',
+      icon: Users,
+      path: '/admin/comunidad',
+    },
   ];
 
   const isActive = (path: string) => {

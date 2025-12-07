@@ -23,3 +23,4 @@ export { default as AdminPaymentSettings } from './AdminPaymentSettings';
 export { default as AdminMarketing } from './AdminMarketing';
 export { default as AdminReports } from './AdminReports';
 export { default as AdminSettings } from './AdminSettings';
+export { default as AdminCommunity } from './AdminCommunity';

@@ -52,6 +52,7 @@ import {
   AdminPromotions,
   AdminPaymentSettings,
   AdminMarketing,
+  AdminCommunity,
 } from '@/pages/admin';
 
 import ChatWidget from '@/components/chat/ChatWidget';
@@ -230,6 +231,7 @@ function App() {
             <Route path={ROUTES.ADMIN_SETTINGS} element={<AdminSettings />} />
             <Route path={ROUTES.ADMIN_REPORTS} element={<AdminReports />} />
             <Route path={ROUTES.ADMIN_MARKETING} element={<AdminMarketing />} />
+            <Route path="/admin/comunidad" element={<AdminCommunity />} />
           </Route>
 
           {/* ===== ERROR ROUTES ===== */}

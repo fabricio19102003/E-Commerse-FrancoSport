@@ -7,6 +7,8 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { initSocket } from './socket.js';
 
@@ -39,6 +41,17 @@ import chatRoutes from './routes/chat.routes.js';
 import loyaltyRoutes from './routes/loyalty.routes.js';
 import promotionRoutes from './routes/promotions.routes.js';
 import wishlistRoutes from './routes/wishlist.routes.js';
+import communityRoutes from './routes/community.routes.js';
+import adminCommunityRoutes from './routes/admin/community.routes.js';
+
+// ... (imports)
+
+// Admin API Routes
+// ...
+
+// ...
+
+
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -56,7 +69,32 @@ const app = express();
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Security Headers
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: {
+    success: false,
+    error: {
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Demasiadas peticiones desde esta IP, por favor intente de nuevo después de 15 minutos',
+    },
+  },
+});
+
+// Apply rate limiting to all requests
+app.use(limiter);
 
 // Body parser
 app.use(express.json());
@@ -101,6 +139,7 @@ app.use('/api/admin/reviews', adminReviewsRoutes);
 app.use('/api/admin/promotions', adminPromotionsRoutes);
 app.use('/api/admin/payment', adminPaymentRoutes);
 app.use('/api/admin/marketing', adminMarketingRoutes);
+app.use('/api/admin/community', adminCommunityRoutes);
 
 // Upload Routes
 app.use('/api/upload', uploadRoutes);
@@ -116,6 +155,9 @@ app.use('/api/chat', chatRoutes);
 
 // Loyalty Routes
 app.use('/api/loyalty', loyaltyRoutes);
+
+// Community Routes
+app.use('/api/community', communityRoutes);
 
 // Wishlist Routes
 app.use('/api/wishlist', wishlistRoutes);

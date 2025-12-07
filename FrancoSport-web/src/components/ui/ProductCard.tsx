@@ -9,10 +9,11 @@ import React from "react";
 import { formatCurrency } from "@/utils/currency";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui";
-import { ShoppingCart, Heart, Star, Eye } from "lucide-react";
+import { ShoppingCart, Star, Eye } from "lucide-react";
 import type { Product } from "@/types";
-import { useCartStore, useWishlistStore } from "@/store";
+import { useCartStore } from "@/store";
 import toast from "react-hot-toast";
+import WishlistButton from "@/components/products/WishlistButton";
 
 interface ProductCardProps {
   product: Product;
@@ -20,8 +21,6 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addItem } = useCartStore();
-  const { addItem: addToWishlist, removeItem: removeFromWishlist, isInWishlist } = useWishlistStore();
-  const isInWishlistState = isInWishlist(product.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // Evitar navegación del Link
@@ -29,19 +28,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
     addItem(product, undefined, 1);
     toast.success(`${product.name} agregado al carrito`);
-  };
-
-  const handleAddToWishlist = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (isInWishlistState) {
-      removeFromWishlist(product.id);
-      toast.success("Eliminado de favoritos");
-    } else {
-      addToWishlist(product);
-      toast.success("Agregado a favoritos");
-    }
   };
 
   // Calcular descuento
@@ -94,17 +80,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
         {/* Wishlist Button */}
         <div className="absolute top-3 right-3 z-20">
-          <button
-            onClick={handleAddToWishlist}
-            className={`p-2 backdrop-blur-sm rounded-full transition-colors shadow-md opacity-0 group-hover:opacity-100 ${
-              isInWishlistState 
-                ? "bg-primary text-white opacity-100" 
-                : "bg-surface/90 hover:bg-primary hover:text-white"
-            }`}
-            title={isInWishlistState ? "Eliminar de favoritos" : "Agregar a favoritos"}
-          >
-            <Heart className={`h-5 w-5 ${isInWishlistState ? "fill-current" : ""}`} />
-          </button>
+          <WishlistButton 
+            product={product} 
+            className="opacity-0 group-hover:opacity-100 shadow-md" 
+          />
         </div>
       </Link>
 

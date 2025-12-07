@@ -139,13 +139,13 @@ const Header: React.FC = () => {
             {/* Actions */}
             <div className="flex items-center gap-2">
               {/* Wishlist */}
-              {wishlistCount > 0 && (
-                <button
-                  onClick={() => navigate(ROUTES.WISHLIST)}
-                  className="hidden sm:flex relative p-2 text-text-secondary hover:text-primary transition-colors"
-                  aria-label="Favoritos"
-                >
-                  <Heart className="h-6 w-6" />
+              <button
+                onClick={() => navigate(ROUTES.WISHLIST)}
+                className="hidden sm:flex relative p-2 text-text-secondary hover:text-primary transition-colors"
+                aria-label="Favoritos"
+              >
+                <Heart className="h-6 w-6" />
+                {wishlistCount > 0 && (
                   <Badge
                     variant="danger"
                     size="sm"
@@ -153,8 +153,8 @@ const Header: React.FC = () => {
                   >
                     {wishlistCount}
                   </Badge>
-                </button>
-              )}
+                )}
+              </button>
 
               {/* Cart - Abre el Drawer */}
               <button

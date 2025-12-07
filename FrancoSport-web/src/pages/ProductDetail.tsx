@@ -5,7 +5,6 @@ import { Container } from '@/components/layout/Container';
 import { Button, Badge, Card } from '@/components/ui';
 import { 
   ShoppingCart, 
-  Heart, 
   Star, 
   Truck, 
   ShieldCheck, 
@@ -18,10 +17,12 @@ import {
 import { getProductBySlug } from '@/api/products.service';
 import { reviewsService } from '@/api/reviews.service';
 import { logViewItem, logAddToCart } from '@/api/analytics.service';
-import { useCartStore, useWishlistStore, useAuthStore } from '@/store';
+import { useCartStore, useAuthStore } from '@/store';
 import type { Product, Review } from '@/types';
 import { ROUTES } from '@/constants/routes';
 import toast from 'react-hot-toast';
+import WishlistButton from '@/components/products/WishlistButton';
+import { ImageMagnifier } from '@/components/ui/ImageMagnifier';
 
 const ProductDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -29,7 +30,6 @@ const ProductDetail: React.FC = () => {
   
   // Stores
   const { addItem: addToCart } = useCartStore();
-  const { addItem: addToWishlist, removeItem: removeFromWishlist, isInWishlist } = useWishlistStore();
   const { isAuthenticated, user } = useAuthStore();
 
   // State
@@ -38,7 +38,6 @@ const ProductDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   
   // Review Form State
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -55,7 +54,6 @@ const ProductDetail: React.FC = () => {
         const data = await getProductBySlug(slug);
         setProduct(data);
         setSelectedImage(data.images[0]?.url || '/placeholder.png');
-        setIsWishlisted(isInWishlist(data.id));
         
         // Track view_item
         logViewItem(data);
@@ -81,7 +79,7 @@ const ProductDetail: React.FC = () => {
     };
 
     loadProduct();
-  }, [slug, isInWishlist, navigate]);
+  }, [slug, navigate]);
 
   const handleQuantityChange = (value: number) => {
     if (value < 1) return;
@@ -94,20 +92,6 @@ const ProductDetail: React.FC = () => {
     addToCart(product, undefined, quantity);
     logAddToCart(product, quantity);
     toast.success('Producto agregado al carrito');
-  };
-
-  const handleToggleWishlist = () => {
-    if (!product) return;
-    
-    if (isWishlisted) {
-      removeFromWishlist(product.id);
-      setIsWishlisted(false);
-      toast.success('Eliminado de favoritos');
-    } else {
-      addToWishlist(product);
-      setIsWishlisted(true);
-      toast.success('Agregado a favoritos');
-    }
   };
 
   const handleShare = () => {
@@ -183,10 +167,12 @@ const ProductDetail: React.FC = () => {
           {/* Gallery */}
           <div className="space-y-4">
             <div className="aspect-square bg-surface rounded-xl overflow-hidden border border-border relative group">
-              <img 
-                src={selectedImage} 
+              <ImageMagnifier
+                src={selectedImage}
                 alt={product.name}
-                className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+                width="100%"
+                height="100%"
+                className="p-4"
               />
               {Number(product.stock) <= 0 && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -296,17 +282,11 @@ const ProductDetail: React.FC = () => {
                 </Button>
 
                 {/* Wishlist */}
-                <button 
-                  onClick={handleToggleWishlist}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    isWishlisted 
-                      ? 'border-red-500 text-red-500 bg-red-500/10' 
-                      : 'border-border text-text-secondary hover:border-primary hover:text-primary'
-                  }`}
-                  title={isWishlisted ? "Eliminar de favoritos" : "Agregar a favoritos"}
-                >
-                  <Heart className={`w-6 h-6 ${isWishlisted ? 'fill-current' : ''}`} />
-                </button>
+                <WishlistButton 
+                  product={product} 
+                  className="p-3 rounded-lg border-2 border-border hover:border-primary"
+                  iconSize={24}
+                />
 
                 {/* Share */}
                 <button 
