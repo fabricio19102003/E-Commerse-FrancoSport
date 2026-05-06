@@ -5,9 +5,7 @@
  * Gestión administrativa de pedidos
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all orders (admin view)
@@ -231,11 +229,6 @@ export const updateOrderStatus = async (req, res, next) => {
       }
     } else if (status === 'DELIVERED') {
       updateData.delivered_at = new Date();
-    } else if (status === 'CANCELLED') {
-      updateData.cancelled_at = new Date();
-      if (notes) {
-        updateData.cancelled_reason = notes;
-      }
     }
 
     // Update order
@@ -391,40 +384,45 @@ export const cancelOrder = async (req, res, next) => {
       });
     }
 
-    // Return stock
-    for (const item of order.items) {
-      if (item.variant_id) {
-        await prisma.productVariant.update({
-          where: { id: item.variant_id },
-          data: { stock: { increment: item.quantity } },
-        });
-      } else {
-        await prisma.product.update({
-          where: { id: item.product_id },
-          data: { stock: { increment: item.quantity } },
-        });
+    // Cancel order, restore stock, and record history atomically
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // Return stock
+      for (const item of order.items) {
+        if (item.variant_id) {
+          await tx.productVariant.update({
+            where: { id: item.variant_id },
+            data: { stock: { increment: item.quantity } },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.product_id },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
       }
-    }
 
-    // Update order
-    const updatedOrder = await prisma.order.update({
-      where: { order_number: orderNumber },
-      data: {
-        status: 'CANCELLED',
-        payment_status: order.payment_status === 'PAID' ? 'REFUNDED' : order.payment_status,
-        cancelled_at: new Date(),
-        cancelled_reason: reason,
-      },
-    });
+      // Update order
+      const updated = await tx.order.update({
+        where: { order_number: orderNumber },
+        data: {
+          status: 'CANCELLED',
+          payment_status: order.payment_status === 'PAID' ? 'REFUNDED' : order.payment_status,
+          cancelled_at: new Date(),
+          cancelled_reason: reason,
+        },
+      });
 
-    // Create status history entry
-    await prisma.orderStatusHistory.create({
-      data: {
-        order_id: order.id,
-        status: 'CANCELLED',
-        notes: `Cancelado por administrador. Razón: ${reason}`,
-        created_by: req.user.id,
-      },
+      // Create status history entry
+      await tx.orderStatusHistory.create({
+        data: {
+          order_id: order.id,
+          status: 'CANCELLED',
+          notes: `Cancelado por administrador. Razón: ${reason}`,
+          created_by: req.user.id,
+        },
+      });
+
+      return updated;
     });
 
     res.json({

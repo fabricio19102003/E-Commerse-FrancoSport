@@ -27,7 +27,17 @@ router.get('/:id', usersController.getUser);
 router.get('/:id/orders', usersController.getUserOrders);
 
 // PUT /api/admin/users/:id - Update user
-router.put('/:id', usersController.updateUser);
+router.put(
+  '/:id',
+  [
+    body('role')
+      .optional()
+      .isIn(['ADMIN', 'CUSTOMER', 'MODERATOR'])
+      .withMessage('Rol inválido'),
+    validate,
+  ],
+  usersController.updateUser
+);
 
 // PATCH /api/admin/users/:id/toggle-status - Toggle active status
 router.patch('/:id/toggle-status', usersController.toggleUserStatus);

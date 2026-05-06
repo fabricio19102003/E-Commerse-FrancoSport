@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../utils/prisma.js';
 import { broadcastPromotion } from '../../services/email.service.js';
-
-const prisma = new PrismaClient();
 
 export const getPromotions = async (req, res) => {
   try {

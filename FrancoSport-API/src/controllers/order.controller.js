@@ -167,46 +167,49 @@ export const cancelOrder = async (req, res, next) => {
       });
     }
 
-    // Update order status
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'CANCELLED',
-        cancelled_at: new Date(),
-        cancelled_reason: reason,
-      },
-    });
+    // Cancel order, restore stock, and record history atomically
+    await prisma.$transaction(async (tx) => {
+      // Update order status
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'CANCELLED',
+          cancelled_at: new Date(),
+          cancelled_reason: reason,
+        },
+      });
 
-    // Return stock
-    for (const item of order.items) {
-      if (item.variant_id) {
-        await prisma.productVariant.update({
-          where: { id: item.variant_id },
-          data: {
-            stock: {
-              increment: item.quantity,
+      // Return stock
+      for (const item of order.items) {
+        if (item.variant_id) {
+          await tx.productVariant.update({
+            where: { id: item.variant_id },
+            data: {
+              stock: {
+                increment: item.quantity,
+              },
             },
-          },
-        });
-      } else {
-        await prisma.product.update({
-          where: { id: item.product_id },
-          data: {
-            stock: {
-              increment: item.quantity,
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.product_id },
+            data: {
+              stock: {
+                increment: item.quantity,
+              },
             },
-          },
-        });
+          });
+        }
       }
-    }
 
-    // Add status history
-    await prisma.orderStatusHistory.create({
-      data: {
-        order_id: order.id,
-        status: 'CANCELLED',
-        notes: reason,
-      },
+      // Add status history
+      await tx.orderStatusHistory.create({
+        data: {
+          order_id: order.id,
+          status: 'CANCELLED',
+          notes: reason,
+        },
+      });
     });
 
     res.json({
@@ -356,7 +359,6 @@ export const createOrder = async (req, res, next) => {
           subtotal,
           shipping_cost: shippingCost,
           tax_amount: 0,
-          total_amount: total,
           total_amount: total,
           payment_proof_url: payment_proof_url || undefined,
           items: {

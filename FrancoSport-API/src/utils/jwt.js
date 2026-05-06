@@ -22,7 +22,10 @@ export const generateToken = (payload) => {
  * @returns {String} JWT token
  */
 export const generateRefreshToken = (payload) => {
-  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, {
+  if (!process.env.JWT_REFRESH_SECRET) {
+    throw new Error('JWT_REFRESH_SECRET is required. Refresh tokens must use a separate secret from access tokens.');
+  }
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
 };
@@ -46,8 +49,11 @@ export const verifyToken = (token) => {
  * @returns {Object} Decoded payload
  */
 export const verifyRefreshToken = (token) => {
+  if (!process.env.JWT_REFRESH_SECRET) {
+    throw new Error('JWT_REFRESH_SECRET is required. Refresh tokens must use a separate secret from access tokens.');
+  }
   try {
-    return jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+    return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
   } catch (error) {
     throw new Error('Refresh token inválido o expirado');
   }

@@ -40,7 +40,7 @@ export const uploadPaymentProof = async (req, res, next) => {
       });
     }
 
-    // Check if order exists
+    // Check if order exists and verify ownership
     const order = await prisma.order.findUnique({
       where: { id: parseInt(orderId) }
     });
@@ -49,6 +49,14 @@ export const uploadPaymentProof = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'Orden no encontrada'
+      });
+    }
+
+    // Only the order owner (or admin) can upload payment proof
+    if (order.user_id !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes acceso a este pedido'
       });
     }
     

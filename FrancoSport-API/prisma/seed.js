@@ -10,13 +10,24 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando seed de la base de datos...\n');
+  console.log('Iniciando seed de la base de datos...\n');
+
+  const isProduction = process.env.NODE_ENV === 'production';
 
   // ===== USERS =====
-  console.log('👤 Creando usuarios...');
+  console.log('Creando usuarios...');
 
-  const adminPassword = await bcrypt.hash('admin123', 12);
-  const userPassword = await bcrypt.hash('user123', 12);
+  const adminRawPassword = process.env.SEED_ADMIN_PASSWORD || (isProduction ? null : 'admin123');
+  const userRawPassword = process.env.SEED_USER_PASSWORD || (isProduction ? null : 'user123');
+
+  if (isProduction && (!adminRawPassword || !userRawPassword)) {
+    throw new Error(
+      'SEED_ADMIN_PASSWORD and SEED_USER_PASSWORD must be set via environment variables in production.'
+    );
+  }
+
+  const adminPassword = await bcrypt.hash(adminRawPassword, 12);
+  const userPassword = await bcrypt.hash(userRawPassword, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@francosport.com' },
@@ -298,6 +309,10 @@ async function main() {
   // ===== COUPONS =====
   console.log('\n🎟️  Creando cupones...');
 
+  // Use dynamic future dates so seeded coupons are always valid
+  const oneYearFromNow = new Date();
+  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
   await prisma.coupon.createMany({
     data: [
       {
@@ -308,7 +323,7 @@ async function main() {
         minimum_purchase_amount: 100,
         maximum_discount_amount: 50,
         starts_at: new Date(),
-        expires_at: new Date('2025-12-31'),
+        expires_at: oneYearFromNow,
         is_active: true,
       },
       {
@@ -318,7 +333,7 @@ async function main() {
         discount_value: 0,
         minimum_purchase_amount: 200,
         starts_at: new Date(),
-        expires_at: new Date('2025-12-31'),
+        expires_at: oneYearFromNow,
         is_active: true,
       },
     ],
@@ -326,10 +341,10 @@ async function main() {
 
   console.log('✅ Cupones creados');
 
-  console.log('\n🎉 ¡Seed completado exitosamente!\n');
-  console.log('📧 Credenciales de prueba:');
-  console.log('   Admin: admin@francosport.com / admin123');
-  console.log('   Cliente: cliente@francosport.com / user123\n');
+  console.log('\nSeed completado exitosamente!\n');
+  console.log('Credenciales de prueba:');
+  console.log('   Admin: admin@francosport.com / <SEED_ADMIN_PASSWORD>');
+  console.log('   Cliente: cliente@francosport.com / <SEED_USER_PASSWORD>\n');
 }
 
 main()

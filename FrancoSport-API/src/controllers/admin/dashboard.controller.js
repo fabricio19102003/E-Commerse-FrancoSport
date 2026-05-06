@@ -5,9 +5,7 @@
  * Controlador para métricas y estadísticas del dashboard
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get dashboard statistics

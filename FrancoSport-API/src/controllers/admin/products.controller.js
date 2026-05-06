@@ -5,9 +5,7 @@
  * Gestión administrativa de productos
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all products (admin view - includes inactive)
@@ -238,22 +236,36 @@ export const createProduct = async (req, res, next) => {
 export const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = { ...req.body };
 
-    // Remove images from update data (handle separately)
-    const { images, ...productData } = updateData;
+    // Whitelist allowed update fields — never spread raw req.body into Prisma
+    const ALLOWED_FIELDS = [
+      'name', 'slug', 'short_description', 'description',
+      'price', 'compare_at_price', 'cost_price', 'sku', 'barcode',
+      'stock', 'low_stock_threshold', 'weight',
+      'category_id', 'brand_id',
+      'is_featured', 'is_active',
+      'meta_title', 'meta_description',
+    ];
+
+    const images = req.body.images;
+    const productData = {};
+    for (const field of ALLOWED_FIELDS) {
+      if (req.body[field] !== undefined) {
+        productData[field] = req.body[field];
+      }
+    }
 
     // Convert numeric fields
-    if (productData.price) productData.price = parseFloat(productData.price);
-    if (productData.compare_at_price)
+    if (productData.price != null) productData.price = parseFloat(productData.price);
+    if (productData.compare_at_price != null)
       productData.compare_at_price = parseFloat(productData.compare_at_price);
-    if (productData.cost_price) productData.cost_price = parseFloat(productData.cost_price);
-    if (productData.stock) productData.stock = parseInt(productData.stock);
-    if (productData.low_stock_threshold)
+    if (productData.cost_price != null) productData.cost_price = parseFloat(productData.cost_price);
+    if (productData.stock != null) productData.stock = parseInt(productData.stock);
+    if (productData.low_stock_threshold != null)
       productData.low_stock_threshold = parseInt(productData.low_stock_threshold);
-    if (productData.weight) productData.weight = parseFloat(productData.weight);
-    if (productData.category_id) productData.category_id = parseInt(productData.category_id);
-    if (productData.brand_id) productData.brand_id = parseInt(productData.brand_id);
+    if (productData.weight != null) productData.weight = parseFloat(productData.weight);
+    if (productData.category_id != null) productData.category_id = parseInt(productData.category_id);
+    if (productData.brand_id != null) productData.brand_id = parseInt(productData.brand_id);
 
     const product = await prisma.product.update({
       where: { id: parseInt(id) },
@@ -371,24 +383,32 @@ export const toggleProductStatus = async (req, res, next) => {
  */
 export const getLowStockProducts = async (req, res, next) => {
   try {
-    const products = await prisma.product.findMany({
-      where: {
-        is_active: true,
-        stock: {
-          lte: prisma.product.fields.low_stock_threshold,
-          gt: 0,
-        },
-      },
-      include: {
-        category: true,
-        brand: true,
-        images: {
-          where: { is_primary: true },
-          take: 1,
-        },
-      },
-      orderBy: { stock: 'asc' },
-    });
+    // Prisma doesn't support cross-field comparison (stock <= low_stock_threshold)
+    // in where clauses. Use raw query to find IDs, then fetch with Prisma includes.
+    const lowStockIds = await prisma.$queryRaw`
+      SELECT id FROM products
+      WHERE is_active = true
+        AND stock <= low_stock_threshold
+        AND stock > 0
+      ORDER BY stock ASC
+    `;
+
+    const ids = lowStockIds.map((row) => row.id);
+
+    const products = ids.length > 0
+      ? await prisma.product.findMany({
+          where: { id: { in: ids } },
+          include: {
+            category: true,
+            brand: true,
+            images: {
+              where: { is_primary: true },
+              take: 1,
+            },
+          },
+          orderBy: { stock: 'asc' },
+        })
+      : [];
 
     res.json({
       success: true,

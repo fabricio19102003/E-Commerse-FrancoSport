@@ -5,10 +5,8 @@
  * Gestión administrativa de usuarios
  */
 
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all users (admin view)
@@ -166,10 +164,16 @@ export const getUser = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { first_name, last_name, email, phone, role, is_active, email_verified } = req.body;
+    // Whitelist allowed update fields — never spread raw req.body into Prisma
+    const ALLOWED_FIELDS = ['first_name', 'last_name', 'email', 'phone', 'role', 'is_active', 'email_verified'];
+    const updateFields = {};
+    for (const field of ALLOWED_FIELDS) {
+      if (req.body[field] !== undefined) {
+        updateFields[field] = req.body[field];
+      }
+    }
 
-    console.log('DEBUG: updateUser body:', req.body);
-    console.log('DEBUG: email_verified value:', email_verified, 'Type:', typeof email_verified);
+    const { email: newEmail } = updateFields;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -187,9 +191,9 @@ export const updateUser = async (req, res, next) => {
     }
 
     // Check if email is taken by another user
-    if (email && email !== existingUser.email) {
+    if (newEmail && newEmail !== existingUser.email) {
       const emailTaken = await prisma.user.findUnique({
-        where: { email },
+        where: { email: newEmail },
       });
 
       if (emailTaken) {
@@ -207,13 +211,7 @@ export const updateUser = async (req, res, next) => {
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: {
-        first_name,
-        last_name,
-        email,
-        phone,
-        role,
-        is_active,
-        email_verified,
+        ...updateFields,
         updated_at: new Date(),
       },
       select: {

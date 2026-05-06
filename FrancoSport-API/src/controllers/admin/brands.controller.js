@@ -5,9 +5,7 @@
  * Gestión administrativa de marcas
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all brands (admin view)

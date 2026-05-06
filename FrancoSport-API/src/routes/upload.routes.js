@@ -19,7 +19,7 @@ router.post('/image', upload.single('image'), uploadController.uploadImage);
 // POST /api/upload/images - Upload multiple images
 router.post('/images', upload.array('images', 5), uploadController.uploadMultipleImages);
 
-// DELETE /api/upload/image/:publicId - Delete image
-router.delete('/image/:publicId', uploadController.deleteImage);
+// DELETE /api/upload/image/:publicId - Delete image (admin only)
+router.delete('/image/:publicId', requireAdmin, uploadController.deleteImage);
 
 export default router;

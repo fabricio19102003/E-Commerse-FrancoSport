@@ -5,9 +5,7 @@
  * Gestión de moderación de reseñas
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all reviews (admin view)

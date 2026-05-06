@@ -5,9 +5,7 @@
  * Gestión administrativa de métodos de envío
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all shipping methods (admin view)

@@ -5,9 +5,7 @@
  * Gestión administrativa de cupones de descuento
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../utils/prisma.js';
 
 /**
  * Get all coupons (admin view)

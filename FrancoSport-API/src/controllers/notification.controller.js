@@ -13,13 +13,12 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
+} else if (process.env.NODE_ENV === 'production') {
+  throw new Error('VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required in production. Push notifications cannot start without them.');
 } else {
-  console.warn('⚠️ VAPID Keys missing. Push notifications will not work.');
-  // Generate keys for development convenience (log them)
-  const vapidKeys = webpush.generateVAPIDKeys();
-  console.log('🔑 Generated VAPID Keys (Add to .env):');
-  console.log(`VAPID_PUBLIC_KEY=${vapidKeys.publicKey}`);
-  console.log(`VAPID_PRIVATE_KEY=${vapidKeys.privateKey}`);
+  console.warn('VAPID Keys missing. Push notifications will not work.');
+  console.warn('Generate keys with: npx web-push generate-vapid-keys');
+  console.warn('Then add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to your .env file.');
 }
 
 /**

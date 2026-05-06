@@ -44,7 +44,23 @@ router.post(
 );
 
 // PUT /api/admin/products/:id - Update product
-router.put('/:id', productsController.updateProduct);
+router.put(
+  '/:id',
+  [
+    body('name').optional().trim().isLength({ min: 3 }).withMessage('El nombre debe tener al menos 3 caracteres'),
+    body('slug').optional().trim().isLength({ min: 3 }).withMessage('El slug debe tener al menos 3 caracteres'),
+    body('description').optional().trim().isLength({ min: 10 }).withMessage('La descripción debe tener al menos 10 caracteres'),
+    body('price').optional().isFloat({ min: 0 }).withMessage('El precio debe ser mayor a 0'),
+    body('cost_price').optional().isFloat({ min: 0 }).withMessage('El costo debe ser mayor a 0'),
+    body('stock').optional().isInt({ min: 0 }).withMessage('El stock no puede ser negativo'),
+    body('low_stock_threshold').optional().isInt({ min: 0 }).withMessage('El umbral debe ser mayor a 0'),
+    body('weight').optional().isFloat({ min: 0 }).withMessage('El peso debe ser mayor a 0'),
+    body('category_id').optional().isInt({ min: 1 }).withMessage('Selecciona una categoría'),
+    body('brand_id').optional().isInt({ min: 1 }).withMessage('Selecciona una marca'),
+    validate,
+  ],
+  productsController.updateProduct
+);
 
 // DELETE /api/admin/products/:id - Delete product
 router.delete('/:id', productsController.deleteProduct);
