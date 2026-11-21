@@ -9,8 +9,9 @@ Branch feat/profile-password-free-shipping (top of the stack: PR #17 on PR #15).
 - S4 Bugs: small ones fixed test-first inside the stack (API test or Playwright assertion), everything else reported. No business-rule changes.
 
 ## Tasks
-- [ ] T1 (S1-S4) Local stack + walkthrough + fixes — worker — commit: pending
+- [x] T1 (S1-S4) Local stack + walkthrough + fixes — worker — commit f5f0073
 - [ ] T2 (S1) Merge #15 then #17 (merge commits) — parent — commit: n/a
 
 ## Log
 - L1 (user): "ok si metele con la union y las pruebas completas". Order chosen: walkthrough first, merge after green.
+- L2: walkthrough green: A 20/20 (register, verify, forgot/reset, profile change), B 31/31 (PERCENTAGE, FIXED_AMOUNT, FREE_SHIPPING plain and capped, min purchase, total and per-customer limits, coupon or points, cancel/reopen times_used), C 10/10 (390 + admin email change). 4 web bugs fixed (revoked session store, stale login/register toasts, admin field errors, checkout notice) + mock email links outside production. API 441 tests. Not exercised: payment proof upload, QR config. Reported: Home banner "ENVÍO GRATIS > BS. 500" not checked against the API; seed ships FRANCO20 and ENVIOGRATIS coupons.
