@@ -10,7 +10,8 @@ Branch fix/web-build (top of the stack: PR #11).
 - S5 Every bug found is reported with reproduction; fixed test-first when small and inside the stack's scope (API test or Playwright assertion), otherwise listed for the user. No change of business rules.
 
 ## Tasks
-- [ ] T1 (S1-S5) Local stack + Playwright walkthrough + fixes — worker — commit: pending
+- [x] T1 (S1-S5) Local stack + Playwright walkthrough + fixes — worker — commit 3ac94d2
 
 ## Log
 - L1 (user): "ok quiero primero resolver lo de franco sport asi que metele a eso".
+- L2: walkthrough passed after 6 web fixes (cart/checkout NaN totals, "Envío Gratis", customer cancel button without handler, admin order detail camelCase vs snake_case, no reopen in the UI, zod 4 English messages + empty compare price blocking save). API: 223 tests, no API bug. Simulated: Cloudinary storage (node --import double); QR config upload not exercised. Reported, not fixed: global rate limit 100/15 min trips after ~14 SPA page views (needs a decision + trust proxy); admin shows $ instead of Bs.; raw English statuses (PAID, PENDING, CASH_ON_DELIVERY) in customer and admin order pages; duplicated "Entrega en 3-5 días"; post-checkout redirect to home; seed has no payment config.
