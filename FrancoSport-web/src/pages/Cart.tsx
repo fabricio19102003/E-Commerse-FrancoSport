@@ -164,7 +164,7 @@ const Cart: React.FC = () => {
                           {formatCurrency(Number(item.price_at_add))} x {item.quantity}
                         </p>
                         <p className="text-xl font-bold text-primary">
-                          {formatCurrency(Number(item.subtotal))}
+                          {formatCurrency(Number(item.price_at_add) * item.quantity)}
                         </p>
                       </div>
                     </div>
@@ -186,7 +186,7 @@ const Cart: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-text-secondary">
                   <span>Envío</span>
-                  <span className="text-green-500 font-medium">Gratis</span>
+                  <span className="text-text-tertiary">Se calcula al pagar</span>
                 </div>
                 <div className="flex justify-between text-text-secondary">
                   <span>Impuestos estimados</span>
