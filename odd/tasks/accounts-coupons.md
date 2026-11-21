@@ -11,11 +11,12 @@ Branch feat/accounts-coupons (from main after PRs #7, #9, #11, #13).
 - S6 Emails go through the existing email service (nodemailer); without SMTP config they are logged as today ([MOCK EMAIL]); links use FRONTEND_URL. Tests never send real email.
 
 ## Tasks
-- [ ] T1 (S1, S3, S4, S6) Email verification and password reset (API + web) — worker A — Risk: item 2 — commit: pending
-- [ ] T2 (S1, S2, S5) Coupons at checkout and Stripe removal (API + web) — worker B — Risk: item 1 — commit: pending
-- [ ] T3 (S3-S5) Independent verification — gentle-ai-verify — commit: n/a
+- [x] T1 (S1, S3, S4, S6) Email verification and password reset (API + web) — worker A — Risk: item 2 — commit: see Log L4
+- [x] T2 (S1, S2, S5) Coupons at checkout and Stripe removal (API + web) — worker B — Risk: item 1 — commit: see Log L4
+- [x] T3 (S3-S5) Independent verification — gentle-ai-verify — commit: n/a
 
 ## Log
 - L1 (user): "ok si uni las prs y sigamos con el punto 4". PRs #7, #9, #11, #13 merged with merge commits.
 - L2 (user answers): Stripe "Sacar Stripe y el texto (Recomendado)"; verification "Todo, con aviso; verificar para comprar (Recomendado)"; coupons "Cupón o puntos, no ambos".
 - L3: Coupon model already has discount_type, discount_value, minimum_purchase_amount, maximum_discount_amount, usage_limit_total, usage_limit_per_user, times_used, starts_at, expires_at, is_active, orders → no schema change for coupons. User.email_verified exists; reset/verification tokens need storage (T1 owns prisma/schema.prisma).
+- L4: commits 166728c (auth), 8920af3 (coupons + Stripe), 3028b87 (integration: coupons mounted + 30/15 min limit, admin coupons aligned with the schema, password change, email lifetimes, docs), ad74566 (verify fixes). Verify: no takeover or coupon-limit issue; fixed: profile password change logged the user out (now returns a fresh pair), access tokens revoked via pwd claim, forgot-password deferred work + revoke previous link, coupon preview duplicate lines, admin email change resets verification. 410 tests green twice. Admin coupons accept only PERCENTAGE and FIXED_AMOUNT (FREE_SHIPPING not applied by checkout). No web page calls change password yet. Stripe left only in the two .env.example files (user edits them).
