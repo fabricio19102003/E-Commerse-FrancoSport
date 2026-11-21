@@ -110,6 +110,17 @@ export interface ShippingMethod {
   updated_at: string;
 }
 
+/** Método de envío público devuelto por GET /shipping-methods (los montos llegan como texto decimal) */
+export interface AvailableShippingMethod {
+  id: number;
+  name: string;
+  description?: string | null;
+  base_cost: number | string;
+  cost_per_kg: number | string;
+  estimated_days_min: number;
+  estimated_days_max: number;
+}
+
 export interface ShippingZone {
   id: number;
   name: string;

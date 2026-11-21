@@ -3,8 +3,31 @@
  * Franco Sport E-Commerce
  */
 
+import { randomInt } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import prisma from '../utils/prisma.js';
 import { sendOrderConfirmationEmail } from '../services/email.service.js';
+import {
+  CANCELLABLE_STATUSES,
+  OrderError,
+  POINTS_PER_UNIT,
+  calculateShippingCost,
+  cancelOrderInTransaction,
+  roundMoney,
+  runTransaction,
+  sortByStockLock,
+} from '../services/order.service.js';
+
+const { Decimal } = Prisma;
+
+const cannotCancel = (res) =>
+  res.status(400).json({
+    success: false,
+    error: {
+      code: 'CANNOT_CANCEL',
+      message: 'Este pedido no puede ser cancelado',
+    },
+  });
 
 /**
  * Get user's orders
@@ -130,9 +153,6 @@ export const cancelOrder = async (req, res, next) => {
 
     const order = await prisma.order.findUnique({
       where: { order_number: orderNumber },
-      include: {
-        items: true,
-      },
     });
 
     if (!order) {
@@ -157,60 +177,19 @@ export const cancelOrder = async (req, res, next) => {
     }
 
     // Check if order can be cancelled
-    if (!['PENDING', 'PROCESSING'].includes(order.status)) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'CANNOT_CANCEL',
-          message: 'Este pedido no puede ser cancelado',
-        },
-      });
+    if (!CANCELLABLE_STATUSES.includes(order.status)) {
+      return cannotCancel(res);
     }
 
-    // Cancel order, restore stock, and record history atomically
-    await prisma.$transaction(async (tx) => {
-      // Update order status
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'CANCELLED',
-          cancelled_at: new Date(),
-          cancelled_reason: reason,
-        },
-      });
+    // Cancel order, restore stock and points, and record history atomically.
+    // The helper claims the cancellation, so a repeated or concurrent request restores nothing.
+    const cancelled = await runTransaction(prisma, (tx) =>
+      cancelOrderInTransaction(tx, order, { reason, historyNotes: reason })
+    );
 
-      // Return stock
-      for (const item of order.items) {
-        if (item.variant_id) {
-          await tx.productVariant.update({
-            where: { id: item.variant_id },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
-            },
-          });
-        } else {
-          await tx.product.update({
-            where: { id: item.product_id },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
-            },
-          });
-        }
-      }
-
-      // Add status history
-      await tx.orderStatusHistory.create({
-        data: {
-          order_id: order.id,
-          status: 'CANCELLED',
-          notes: reason,
-        },
-      });
-    });
+    if (!cancelled) {
+      return cannotCancel(res);
+    }
 
     res.json({
       success: true,
@@ -228,25 +207,43 @@ export const cancelOrder = async (req, res, next) => {
 export const createOrder = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { items, shipping_address_id, payment_method, shipping_method_id, payment_proof_url } = req.body;
+    // Amounts (prices, shipping, totals) are never read from the client
+    const { items, shipping_address_id, shipping_method_id, payment_method, payment_proof_url } = req.body;
+    const redeemPoints = req.body.redeem_points ?? 0;
 
-    // Validate items
-    if (!items || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'NO_ITEMS',
-          message: 'El pedido debe tener al menos un producto',
-        },
-      });
+    // Same product/variant twice is rejected, not merged
+    const seen = new Set();
+    for (const item of items) {
+      const key = `${item.product_id}:${item.variant_id ?? ''}`;
+      if (seen.has(key)) {
+        throw new OrderError(
+          `Producto repetido en el pedido: ${item.product_id}${item.variant_id ? ` (variante ${item.variant_id})` : ''}. Combine las cantidades en una sola línea`
+        );
+      }
+      seen.add(key);
     }
 
     // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
-      let subtotal = 0;
-      const orderItemsData = [];
+    const result = await runTransaction(prisma, async (tx) => {
+      // Address must belong to the customer (same answer as a missing one)
+      const address = await tx.address.findFirst({ where: { id: shipping_address_id, user_id: userId } });
+      if (!address) {
+        throw new OrderError('Dirección de envío no encontrada');
+      }
 
-      // Process items and check stock
+      // Shipping method must exist, be active and be in an active zone
+      const shippingMethod = await tx.shippingMethod.findFirst({
+        where: { id: shipping_method_id, is_active: true, shipping_zone: { is_active: true } },
+      });
+      if (!shippingMethod) {
+        throw new OrderError('Método de envío no disponible');
+      }
+
+      let subtotal = new Decimal(0);
+      let totalWeight = new Decimal(0);
+      const lines = [];
+
+      // Prices, weights and availability come only from the database
       for (const item of items) {
         const product = await tx.product.findUnique({
           where: { id: item.product_id },
@@ -254,111 +251,112 @@ export const createOrder = async (req, res, next) => {
         });
 
         if (!product) {
-          throw new Error(`Producto no encontrado: ${item.product_id}`);
+          throw new OrderError(`Producto no encontrado: ${item.product_id}`);
+        }
+        if (!product.is_active) {
+          throw new OrderError(`El producto ${product.name} no está disponible`);
         }
 
-        let price = Number(product.price);
+        let price = new Decimal(product.price);
         let variant = null;
 
         if (item.variant_id) {
           variant = product.variants.find((v) => v.id === item.variant_id);
           if (!variant) {
-            throw new Error(`Variante no encontrada: ${item.variant_id}`);
+            throw new OrderError(`Variante no encontrada: ${item.variant_id}`);
           }
-          if (variant.stock < item.quantity) {
-            throw new Error(`Stock insuficiente para ${product.name} (${variant.sku})`);
+          if (!variant.is_active) {
+            throw new OrderError(`La variante ${variant.variant_name} no está disponible`);
           }
-          price = Number(variant.price); // Use variant price if available
-          
-          // Update variant stock
-          await tx.productVariant.update({
-            where: { id: variant.id },
-            data: { stock: { decrement: item.quantity } },
-          });
-        } else {
-          if (product.stock < item.quantity) {
-            throw new Error(`Stock insuficiente para ${product.name}`);
+          // A variant without its own price uses the product price
+          if (variant.price !== null) {
+            price = new Decimal(variant.price);
           }
-          
-          // Update product stock
-          await tx.product.update({
-            where: { id: product.id },
-            data: { stock: { decrement: item.quantity } },
-          });
         }
 
-        const itemSubtotal = price * item.quantity;
-        subtotal += itemSubtotal;
+        const itemSubtotal = roundMoney(price.times(item.quantity));
+        subtotal = subtotal.plus(itemSubtotal);
+        totalWeight = totalWeight.plus(new Decimal(product.weight).times(item.quantity));
 
-        orderItemsData.push({
-          product_id: item.product_id,
-          variant_id: item.variant_id,
-          quantity: item.quantity,
-          price_at_purchase: price,
-          subtotal: itemSubtotal,
-          product_name: product.name,
-          variant_name: variant ? variant.variant_name : null,
-        });
+        lines.push({ item, product, variant, price, itemSubtotal });
       }
 
-      // Calculate shipping (hardcoded for now, can be dynamic)
-      const shippingCost = 0;
-      let total = subtotal + shippingCost;
-      let discountAmount = 0;
-
-      // Handle Points Redemption
-      const { redeem_points } = req.body;
-      if (redeem_points && redeem_points > 0) {
-        const user = await tx.user.findUnique({ where: { id: userId } });
-        
-        if (user.loyalty_points < redeem_points) {
-          throw new Error('Puntos de lealtad insuficientes');
+      // Take stock atomically: the conditional update fails if another order took it first.
+      // Fixed order (product, variant) so concurrent orders do not deadlock.
+      const byLock = sortByStockLock(lines.map((line) => ({ ...line, product_id: line.item.product_id, variant_id: line.item.variant_id })));
+      for (const { item, product, variant } of byLock) {
+        const taken = variant
+          ? await tx.productVariant.updateMany({
+              where: { id: variant.id, stock: { gte: item.quantity } },
+              data: { stock: { decrement: item.quantity } },
+            })
+          : await tx.product.updateMany({
+              where: { id: product.id, stock: { gte: item.quantity } },
+              data: { stock: { decrement: item.quantity } },
+            });
+        if (taken.count === 0) {
+          throw new OrderError(
+            variant ? `Stock insuficiente para ${product.name} (${variant.sku})` : `Stock insuficiente para ${product.name}`
+          );
         }
-
-        // 100 points = $1 discount (Example ratio)
-        discountAmount = redeem_points / 100;
-        
-        // Ensure discount doesn't exceed total
-        if (discountAmount > total) {
-          discountAmount = total;
-          // Adjust points used if needed? For now, simple logic.
-        }
-
-        total -= discountAmount;
-
-        // Deduct points
-        await tx.user.update({
-          where: { id: userId },
-          data: { loyalty_points: { decrement: redeem_points } },
-        });
-
-        // Record transaction
-        await tx.loyaltyTransaction.create({
-          data: {
-            user_id: userId,
-            points: -redeem_points,
-            type: 'REDEEMED',
-            description: `Canje en pedido`,
-          },
-        });
       }
 
-      // Generate order number (simple timestamp based)
-      const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const orderItemsData = lines.map(({ item, product, variant, price, itemSubtotal }) => ({
+        product_id: product.id,
+        variant_id: variant ? variant.id : null,
+        quantity: item.quantity,
+        price_at_purchase: price,
+        subtotal: itemSubtotal,
+        product_name: product.name,
+        variant_name: variant ? variant.variant_name : null,
+      }));
+
+      // Shipping is computed from the method and the total weight
+      const shippingCost = calculateShippingCost(shippingMethod, totalWeight);
+      const grossTotal = subtotal.plus(shippingCost);
+
+      // Points: only what the total allows is used (1 point = 1/100 of currency)
+      let pointsUsed = 0;
+      if (redeemPoints > 0) {
+        const user = await tx.user.findUnique({ where: { id: userId }, select: { loyalty_points: true } });
+        if (user.loyalty_points < redeemPoints) {
+          throw new OrderError('Puntos de lealtad insuficientes');
+        }
+
+        const maxPoints = grossTotal.times(POINTS_PER_UNIT).toNumber();
+        pointsUsed = Math.min(redeemPoints, maxPoints);
+
+        if (pointsUsed > 0) {
+          // Conditional deduction: concurrent orders cannot spend the same points twice
+          const deducted = await tx.user.updateMany({
+            where: { id: userId, loyalty_points: { gte: pointsUsed } },
+            data: { loyalty_points: { decrement: pointsUsed } },
+          });
+          if (deducted.count === 0) {
+            throw new OrderError('Puntos de lealtad insuficientes');
+          }
+        }
+      }
+      const discountAmount = new Decimal(pointsUsed).dividedBy(POINTS_PER_UNIT);
+      const total = grossTotal.minus(discountAmount);
+
+      // Generate order number (timestamp plus random suffix)
+      const orderNumber = `ORD-${Date.now()}-${randomInt(0, 1000000)}`;
 
       // Create order
       const newOrder = await tx.order.create({
         data: {
           order_number: orderNumber,
           user_id: userId,
-          shipping_address_id,
-          shipping_method_id,
+          shipping_address_id: address.id,
+          shipping_method_id: shippingMethod.id,
           payment_method,
           status: 'PENDING',
-          payment_status: payment_method === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PENDING',
+          payment_status: 'PENDING',
           subtotal,
           shipping_cost: shippingCost,
           tax_amount: 0,
+          discount_amount: discountAmount,
           total_amount: total,
           payment_proof_url: payment_proof_url || undefined,
           items: {
@@ -381,16 +379,16 @@ export const createOrder = async (req, res, next) => {
         },
       });
 
-      // Link loyalty transaction if points redeemed
-      if (redeem_points && redeem_points > 0) {
-        await tx.loyaltyTransaction.updateMany({
-          where: { 
-            user_id: userId, 
-            type: 'REDEEMED', 
-            order_id: null,
-            created_at: { gte: new Date(Date.now() - 10000) } // Safety check, recently created
-          }, 
-          data: { order_id: newOrder.id }
+      // Record the redemption linked to the order
+      if (pointsUsed > 0) {
+        await tx.loyaltyTransaction.create({
+          data: {
+            user_id: userId,
+            order_id: newOrder.id,
+            points: -pointsUsed,
+            type: 'REDEEMED',
+            description: `Canje en pedido #${orderNumber}`,
+          },
         });
       }
 
@@ -413,12 +411,11 @@ export const createOrder = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    // Handle specific errors
-    if (error.message.includes('Stock insuficiente') || error.message.includes('no encontrado')) {
-      return res.status(400).json({
+    if (error instanceof OrderError) {
+      return res.status(error.status).json({
         success: false,
         error: {
-          code: 'INVALID_ORDER',
+          code: error.code,
           message: error.message,
         },
       });
