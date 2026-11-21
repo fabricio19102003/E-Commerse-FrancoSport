@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { Card, Button } from '@/components/ui';
 import { getOrders } from '@/api/admin/orders.service';
+import { orderStatusLabel } from '@/constants/labels';
 import type { Order } from '@/types';
 import { ReportTemplate } from '@/components/admin/reports/ReportTemplate';
 import { FileText, Download, Search, Loader2, Printer } from 'lucide-react';
@@ -200,18 +201,7 @@ const AdminReports: React.FC = () => {
                           order.status === 'PAID' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {(() => {
-                            const statusMap: Record<string, string> = {
-                              PENDING: 'Pendiente',
-                              PROCESSING: 'Procesando',
-                              PAID: 'Pagado',
-                              SHIPPED: 'Enviado',
-                              DELIVERED: 'Entregado',
-                              CANCELLED: 'Cancelado',
-                              REFUNDED: 'Reembolsado',
-                            };
-                            return statusMap[order.status] || order.status;
-                          })()}
+                          {orderStatusLabel(order.status)}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 truncate">

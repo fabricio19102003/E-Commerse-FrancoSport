@@ -6,6 +6,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
+import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/constants/labels';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { adminOrdersService } from '@/api/admin';
@@ -17,7 +19,7 @@ import {
   Truck,
   CheckCircle,
   XCircle,
-  DollarSign,
+  Banknote,
   Download,
   Loader2,
 } from 'lucide-react';
@@ -96,32 +98,32 @@ const AdminOrders: React.FC = () => {
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { label: string; color: string; icon: React.FC<any> }> = {
       PENDING: {
-        label: 'Pendiente',
+        label: ORDER_STATUS_LABELS.PENDING,
         color: 'yellow',
         icon: Clock,
       },
       PROCESSING: {
-        label: 'Procesando',
+        label: ORDER_STATUS_LABELS.PROCESSING,
         color: 'blue',
         icon: Package,
       },
       PAID: {
-        label: 'Pagado',
+        label: ORDER_STATUS_LABELS.PAID,
         color: 'green',
         icon: CheckCircle,
       },
       SHIPPED: {
-        label: 'Enviado',
+        label: ORDER_STATUS_LABELS.SHIPPED,
         color: 'purple',
         icon: Truck,
       },
       DELIVERED: {
-        label: 'Entregado',
+        label: ORDER_STATUS_LABELS.DELIVERED,
         color: 'green',
         icon: CheckCircle,
       },
       CANCELLED: {
-        label: 'Cancelado',
+        label: ORDER_STATUS_LABELS.CANCELLED,
         color: 'red',
         icon: XCircle,
       },
@@ -131,10 +133,10 @@ const AdminOrders: React.FC = () => {
 
   const getPaymentStatusConfig = (status: string) => {
     const configs: Record<string, { label: string; color: string }> = {
-      PAID: { label: 'Pagado', color: 'green' },
-      PENDING: { label: 'Pendiente', color: 'yellow' },
-      FAILED: { label: 'Fallido', color: 'red' },
-      REFUNDED: { label: 'Reembolsado', color: 'blue' },
+      PAID: { label: PAYMENT_STATUS_LABELS.PAID, color: 'green' },
+      PENDING: { label: PAYMENT_STATUS_LABELS.PENDING, color: 'yellow' },
+      FAILED: { label: PAYMENT_STATUS_LABELS.FAILED, color: 'red' },
+      REFUNDED: { label: PAYMENT_STATUS_LABELS.REFUNDED, color: 'blue' },
     };
     return configs[status] || configs.PENDING;
   };
@@ -170,12 +172,12 @@ const AdminOrders: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-[#1A1A1A] border border-neutral-800 rounded-xl p-6">
           <div className="flex items-center space-x-3 mb-3">
-            <DollarSign className="w-5 h-5 text-green-500" />
+            <Banknote className="w-5 h-5 text-green-500" />
             <h4 className="text-sm font-medium text-neutral-400">
               {startDate || endDate ? 'Ingresos (Filtrado)' : 'Ingresos Totales'}
             </h4>
           </div>
-          <p className="text-2xl font-black text-white">${stats.totalRevenue.toFixed(2)}</p>
+          <p className="text-2xl font-black text-white">{formatCurrency(stats.totalRevenue)}</p>
         </div>
 
         <div className="bg-[#1A1A1A] border border-neutral-800 rounded-xl p-6">
@@ -225,12 +227,9 @@ const AdminOrders: React.FC = () => {
             className="px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
           >
             <option value="">Todos los estados</option>
-            <option value="PENDING">Pendiente</option>
-            <option value="PROCESSING">Procesando</option>
-            <option value="PAID">Pagado</option>
-            <option value="SHIPPED">Enviado</option>
-            <option value="DELIVERED">Entregado</option>
-            <option value="CANCELLED">Cancelado</option>
+            {['PENDING', 'PROCESSING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((status) => (
+              <option key={status} value={status}>{ORDER_STATUS_LABELS[status]}</option>
+            ))}
           </select>
 
           {/* Payment Filter */}
@@ -240,10 +239,9 @@ const AdminOrders: React.FC = () => {
             className="px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
           >
             <option value="">Estado de pago</option>
-            <option value="PAID">Pagado</option>
-            <option value="PENDING">Pendiente</option>
-            <option value="FAILED">Fallido</option>
-            <option value="REFUNDED">Reembolsado</option>
+            {['PAID', 'PENDING', 'FAILED', 'REFUNDED'].map((status) => (
+              <option key={status} value={status}>{PAYMENT_STATUS_LABELS[status]}</option>
+            ))}
           </select>
 
           {/* Date Filters */}
@@ -339,7 +337,7 @@ const AdminOrders: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-medium text-white">${parseFloat(order.total_amount?.toString() || '0').toFixed(2)}</p>
+                        <p className="font-medium text-white">{formatCurrency(order.total_amount)}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span

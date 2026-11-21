@@ -20,14 +20,14 @@ export const APP_CONFIG = {
   SLOGAN: import.meta.env.VITE_APP_SLOGAN || 'No es suerte, es esfuerzo',
   VERSION: '1.0.0',
   LOCALE: 'es-BO',
-  CURRENCY: 'USD',
-  CURRENCY_SYMBOL: '$',
+  CURRENCY: 'BOB',
+  CURRENCY_SYMBOL: 'Bs.',
 } as const;
 
 // ===== Business Rules =====
 export const BUSINESS_RULES = {
   // Envío gratis
-  FREE_SHIPPING_THRESHOLD: 1000, // $1000
+  FREE_SHIPPING_THRESHOLD: 1000, // Bs. 1000
 
   // Carrito
   CART_EXPIRATION_DAYS: 30,

@@ -47,6 +47,9 @@ JWT_SECRET=tu_super_secreto_jwt_cambialo_en_produccion
 
 # Frontend
 FRONTEND_URL=http://localhost:5173
+
+# Opcional: proxy inverso delante de la API (ver "Límites de peticiones")
+# TRUST_PROXY=1
 ```
 
 ### 3. Crear base de datos
@@ -78,6 +81,7 @@ Esto creará:
 - 4 productos con imágenes
 - Métodos de envío
 - Cupones de descuento
+- Configuración de pago por QR/transferencia con **datos de ejemplo** (imagen QR y datos bancarios de relleno; cámbialos en el panel admin antes de vender). Si ya existe una configuración, el seed no la sobrescribe.
 
 ## 🎯 Uso
 
@@ -272,6 +276,28 @@ docker rm -f fs-test-mysql
 La URL de pruebas (`mysql://root:test@127.0.0.1:33306/fs_test`) y los secretos JWT de prueba están en
 `tests/test-env.js`; se puede cambiar la base con `TEST_DATABASE_URL`.
 Las pruebas nunca llaman a Cloudinary: se simula solo el adaptador `src/services/storage.service.js`.
+
+## 🚦 Límites de peticiones
+
+Los límites se cuentan en memoria por proceso y se reinician al cambiar de ventana (15 minutos). Al excederlos la API responde `429` con un mensaje en castellano. Se desactivan con `NODE_ENV=test`.
+
+| Ruta | Límite (cada 15 min) | Clave |
+| --- | --- | --- |
+| Toda la API | 600 | IP |
+| `POST /api/auth/login`, `/register`, `/refresh` | 10 por ruta | IP |
+| `POST /api/auth/login`, `/register` | 10 por ruta | correo (sin distinguir mayúsculas) |
+| `POST /api/orders` | 20 | usuario |
+| `POST /api/payment/proof/:orderId` | 10 | usuario (siempre activo) |
+
+### `TRUST_PROXY`
+
+Variable de entorno opcional que se pasa a Express `trust proxy` para que los límites vean la IP real del cliente (`X-Forwarded-For`) y no la del proxy.
+
+- Sin definir (o `false`): sin proxy; `X-Forwarded-For` se ignora (no se puede falsificar para saltarse los límites).
+- `1`: un proxy inverso delante de la API (nginx, Render, Railway…). Un número indica cuántos proxies confiables hay delante.
+- Otros valores (`loopback`, lista de CIDR) se pasan tal cual a Express.
+
+No uses `true`: confiaría en cualquier `X-Forwarded-For` y permitiría evadir los límites. Si la API está detrás de un proxy y no defines `TRUST_PROXY`, todos los clientes compartirán la misma IP y se bloquearán entre sí.
 
 ## 🖼️ Subida de imágenes y pagos por transferencia
 

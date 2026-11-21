@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { useNavigate } from 'react-router-dom';
 import { Button, Badge } from '@/components/ui';
 import { X, ShoppingCart, Minus, Plus, Trash2 } from 'lucide-react';
@@ -135,7 +136,7 @@ const CartDrawer: React.FC = () => {
 
                     {/* Price */}
                     <p className="text-primary font-bold mb-2">
-                      ${Number(item.price_at_add).toFixed(2)}
+                      {formatCurrency(item.price_at_add)}
                     </p>
 
                     {/* Quantity Controls */}
@@ -175,7 +176,7 @@ const CartDrawer: React.FC = () => {
               <div className="flex items-center justify-between text-lg">
                 <span className="font-bold text-text-primary">Subtotal:</span>
                 <span className="font-black text-primary text-2xl">
-                  ${subtotal.toFixed(2)}
+                  {formatCurrency(subtotal)}
                 </span>
               </div>
 
