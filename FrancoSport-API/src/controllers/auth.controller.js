@@ -5,8 +5,36 @@
 
 import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
-import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
-import { sendWelcomeEmail } from '../services/email.service.js';
+import {
+  generateToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  refreshTokenPayload,
+  isRefreshTokenCurrent,
+} from '../utils/jwt.js';
+import { sendWelcomeEmail, sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js';
+import {
+  TOKEN_TYPES,
+  issueToken,
+  consumeToken,
+  revokeTokens,
+  simulateIssueToken,
+} from '../services/token.service.js';
+
+const FORGOT_PASSWORD_MESSAGE = 'Si el correo está registrado, recibirá instrucciones para restablecer su contraseña';
+
+/**
+ * Create a verification token and email the link. Never throws: callers must not fail
+ * (or leak) because the email could not be prepared.
+ */
+const sendVerificationLink = async (user, { revokePrevious = false } = {}) => {
+  try {
+    const token = await issueToken(user.id, TOKEN_TYPES.VERIFY_EMAIL, { revokePrevious });
+    sendVerificationEmail(user, token).catch(err => console.error('Failed to send verification email:', err));
+  } catch (err) {
+    console.error('Failed to issue verification token:', err);
+  }
+};
 
 /**
  * Register new user
@@ -65,12 +93,11 @@ export const register = async (req, res, next) => {
       role: user.role,
     });
 
-    const refreshToken = generateRefreshToken({
-      id: user.id,
-    });
+    const refreshToken = generateRefreshToken(refreshTokenPayload({ id: user.id }));
 
-    // Send welcome email (async, don't await)
+    // Send welcome and verification emails (the transport is not awaited)
     sendWelcomeEmail(user).catch(err => console.error('Failed to send welcome email:', err));
+    await sendVerificationLink(user);
 
     res.status(201).json({
       success: true,
@@ -146,12 +173,10 @@ export const login = async (req, res, next) => {
       role: user.role,
     });
 
-    const refreshToken = generateRefreshToken({
-      id: user.id,
-    });
+    const refreshToken = generateRefreshToken(refreshTokenPayload(user));
 
-    // Remove password_hash from response
-    const { password_hash, ...userWithoutPassword } = user;
+    // Remove internal fields from response
+    const { password_hash, password_changed_at, ...userWithoutPassword } = user;
 
     res.json({
       success: true,
@@ -235,6 +260,17 @@ export const refreshToken = async (req, res, next) => {
       });
     }
 
+    // A password reset invalidates the sessions started before it
+    if (!isRefreshTokenCurrent(decoded, user)) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_REFRESH_TOKEN',
+          message: 'Sesión expirada, por favor inicie sesión nuevamente',
+        },
+      });
+    }
+
     // Generate new access token
     const token = generateToken({
       id: user.id,
@@ -258,6 +294,117 @@ export const refreshToken = async (req, res, next) => {
         },
       });
     }
+    next(error);
+  }
+};
+
+/**
+ * Verify email with the emailed token
+ * POST /api/auth/verify-email
+ */
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const verified = await prisma.$transaction(async (tx) => {
+      const userId = await consumeToken(req.body.token, TOKEN_TYPES.VERIFY_EMAIL, tx);
+      if (!userId) return false;
+      await tx.user.update({ where: { id: userId }, data: { email_verified: true } });
+      return true;
+    });
+
+    if (!verified) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TOKEN',
+          message: 'El enlace de verificación no es válido o ha expirado',
+        },
+      });
+    }
+
+    res.json({ success: true, message: 'Correo verificado correctamente' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Send a new verification email to the logged-in user
+ * POST /api/auth/resend-verification
+ */
+export const resendVerification = async (req, res, next) => {
+  try {
+    if (req.user.email_verified) {
+      return res.json({ success: true, message: 'Su correo electrónico ya está verificado' });
+    }
+
+    await sendVerificationLink(req.user, { revokePrevious: true });
+
+    res.json({ success: true, message: 'Le enviamos un nuevo correo de verificación' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Request a password reset email
+ * POST /api/auth/forgot-password
+ *
+ * Known and unknown emails get the same answer and do the same work
+ * (token generation and one query); the email transport is not awaited.
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { email: req.body.email } });
+
+    if (user && user.is_active) {
+      const token = await issueToken(user.id, TOKEN_TYPES.RESET_PASSWORD);
+      sendPasswordResetEmail(user, token).catch(err => console.error('Failed to send password reset email:', err));
+    } else {
+      await simulateIssueToken();
+    }
+
+    res.json({ success: true, message: FORGOT_PASSWORD_MESSAGE });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Set a new password with the emailed token
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    const password_hash = await bcrypt.hash(password, 12);
+
+    const done = await prisma.$transaction(async (tx) => {
+      const userId = await consumeToken(token, TOKEN_TYPES.RESET_PASSWORD, tx);
+      if (!userId) return false;
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { password_hash, password_changed_at: new Date() },
+      });
+      await revokeTokens(userId, TOKEN_TYPES.RESET_PASSWORD, tx);
+      return true;
+    });
+
+    if (!done) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TOKEN',
+          message: 'El enlace para restablecer la contraseña no es válido o ha expirado',
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada correctamente. Inicie sesión con su nueva contraseña',
+    });
+  } catch (error) {
     next(error);
   }
 };

@@ -111,3 +111,19 @@ export const requireModerator = (req, res, next) => {
   }
   next();
 };
+
+/**
+ * Verify the user's email is verified (admins are exempt). Use after `authenticate`.
+ */
+export const requireVerifiedEmail = (req, res, next) => {
+  if (req.user.role !== 'ADMIN' && !req.user.email_verified) {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Debe verificar su correo electrónico antes de realizar un pedido',
+      },
+    });
+  }
+  next();
+};

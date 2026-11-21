@@ -68,6 +68,9 @@ npm run db:push
 
 Este comando creará todas las tablas en la base de datos.
 
+> El proyecto no usa migraciones: el esquema (`prisma/schema.prisma`) se aplica con `prisma db push`.
+> Al actualizar desde una versión anterior vuelve a ejecutar `npm run db:push` (añade la tabla `user_tokens` y la columna `users.password_changed_at`, sin borrar datos) y después `npx prisma generate` si el cliente no se regenera solo.
+
 ### 5. Poblar base de datos (Seed)
 
 ```bash
@@ -120,8 +123,21 @@ GET /api/health
 ```http
 POST /api/auth/register       # Registrar usuario
 POST /api/auth/login          # Iniciar sesión
-GET  /api/auth/me             # Obtener usuario actual (requiere auth)
+GET  /api/auth/me             # Obtener usuario actual, incluye email_verified (requiere auth)
+POST /api/auth/refresh        # Renovar el token de acceso
+POST /api/auth/verify-email         # { token } Verificar el correo con el enlace recibido
+POST /api/auth/resend-verification  # Reenviar el correo de verificación (requiere auth)
+POST /api/auth/forgot-password      # { email } Solicitar el enlace de recuperación
+POST /api/auth/reset-password       # { token, password } Fijar una nueva contraseña
 ```
+
+#### Verificación de correo y recuperación de contraseña
+
+- Los tokens son aleatorios (`crypto.randomBytes`), de un solo uso y solo se guarda su hash SHA-256 en `user_tokens` (con `expires_at` y `used_at`). Verificación: 24 h. Recuperación: 60 min.
+- El registro envía el correo de verificación. Crear un pedido exige correo verificado (`403 EMAIL_NOT_VERIFIED`; el middleware `requireVerifiedEmail` de `src/middleware/auth.js`; los administradores quedan exentos). Los correos de marketing siguen yendo solo a clientes verificados.
+- `forgot-password` responde igual (200) exista o no el correo, y hace el mismo trabajo en ambos casos.
+- `reset-password` aplica las mismas reglas de contraseña que el registro, invalida el token y los demás tokens de recuperación del usuario, y guarda `users.password_changed_at`. Los refresh tokens llevan esa fecha: tras un cambio de contraseña los emitidos antes dejan de renovar el acceso (`401 INVALID_REFRESH_TOKEN`). Los tokens de acceso ya emitidos siguen valiendo hasta su expiración (15 min por defecto).
+- Los enlaces usan `FRONTEND_URL`: `/verificar-correo?token=…` y `/restablecer-contrasena?token=…`. Sin configuración SMTP los correos solo se registran en consola (`[MOCK EMAIL]`); las pruebas simulan únicamente el transporte y nunca envían correo real.
 
 ### Productos
 
@@ -279,14 +295,17 @@ Las pruebas nunca llaman a Cloudinary: se simula solo el adaptador `src/services
 
 ## 🚦 Límites de peticiones
 
-Los límites se cuentan en memoria por proceso y se reinician al cambiar de ventana (15 minutos). Al excederlos la API responde `429` con un mensaje en castellano. Se desactivan con `NODE_ENV=test`.
+Los límites se cuentan en memoria por proceso y se reinician al cambiar de ventana (15 minutos, o 1 hora donde se indica). Al excederlos la API responde `429` con un mensaje en castellano. Se desactivan con `NODE_ENV=test`.
 
-| Ruta | Límite (cada 15 min) | Clave |
+| Ruta | Límite (cada 15 min salvo indicación) | Clave |
 | --- | --- | --- |
 | Toda la API | 600 | IP |
 | `POST /api/auth/login`, `/register`, `/refresh` | 10 por ruta | IP |
 | `POST /api/auth/login`, `/register` | 10 por ruta | correo (sin distinguir mayúsculas) |
 | `POST /api/orders` | 20 | usuario |
+| `POST /api/auth/verify-email`, `/reset-password` | 10 por ruta | IP |
+| `POST /api/auth/resend-verification` | 3 por hora | usuario |
+| `POST /api/auth/forgot-password` | 5 por hora | IP y correo (cada uno) |
 | `POST /api/payment/proof/:orderId` | 10 | usuario (siempre activo) |
 
 ### `TRUST_PROXY`

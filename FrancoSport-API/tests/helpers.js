@@ -1,4 +1,6 @@
 import request from 'supertest';
+import bcrypt from 'bcryptjs';
+import { createHash } from 'node:crypto';
 import app from '../src/app.js';
 import prisma from '../src/utils/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
@@ -97,20 +99,35 @@ export const createOrderRecord = (ctx, overrides = {}) =>
     },
   });
 
-export const createUser = async ({ points = 0, role = 'CUSTOMER' } = {}) => {
+/**
+ * A user plus an access token. Verified by default (creating orders requires a verified email);
+ * pass `emailVerified: false` for the unverified case and `password` for a real login.
+ */
+export const createUser = async ({ points = 0, role = 'CUSTOMER', emailVerified = true, password, isActive = true } = {}) => {
   const id = unique();
   const user = await prisma.user.create({
     data: {
       email: `user-${id}@test.local`,
-      password_hash: 'not-a-real-hash',
+      // Cost 4: fast enough for tests, same algorithm as the app
+      password_hash: password ? await bcrypt.hash(password, 4) : 'not-a-real-hash',
       first_name: 'Test',
       last_name: 'User',
       role,
       loyalty_points: points,
+      email_verified: emailVerified,
+      is_active: isActive,
     },
   });
   const token = generateToken({ id: user.id, email: user.email, role: user.role });
   return { user, token };
+};
+
+export const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+
+/** The raw token of the link in an email's HTML, e.g. linkToken(html, '/verificar-correo') */
+export const linkToken = (html, path) => {
+  const match = html.match(new RegExp(`href="([^"]*${path}\\?token=([^"&]+))"`));
+  return match ? { link: match[1], token: match[2] } : null;
 };
 
 export const createAddress = (userId) =>

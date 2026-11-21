@@ -31,11 +31,14 @@ model User {
   is_active      Boolean   @default(true)
   loyalty_points Int       @default(0)
   last_login     DateTime?
+  // Set when the password is reset: refresh tokens issued before it stop working
+  password_changed_at DateTime?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
   // Relations
   addresses      Address[]
+  user_tokens    UserToken[]
   carts          Cart[]
   orders         Order[]
   reviews        Review[]
@@ -45,6 +48,27 @@ model User {
   loyalty_transactions LoyaltyTransaction[]
 
   @@map("users")
+}
+
+enum UserTokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+// Single-use email links. Only the SHA-256 of the token is stored.
+model UserToken {
+  id         Int           @id @default(autoincrement())
+  user_id    Int
+  type       UserTokenType
+  token_hash String        @unique @db.Char(64)
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime      @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, type])
+  @@map("user_tokens")
 }
 
 model Address {

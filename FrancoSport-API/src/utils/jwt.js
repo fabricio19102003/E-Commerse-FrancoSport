@@ -58,3 +58,20 @@ export const verifyRefreshToken = (token) => {
     throw new Error('Refresh token inválido o expirado');
   }
 };
+
+/**
+ * Payload of a refresh token. `pwd` is the user's password_changed_at (ms, 0 if never):
+ * a password reset changes it, so refresh tokens issued before the reset no longer match.
+ * @param {Object} user - User with id and password_changed_at
+ */
+export const refreshTokenPayload = (user) => ({
+  id: user.id,
+  pwd: user.password_changed_at ? user.password_changed_at.getTime() : 0,
+});
+
+/**
+ * Whether a decoded refresh token was issued for the user's current password.
+ * Tokens issued before this claim existed have none and count as 0, matching users who never reset.
+ */
+export const isRefreshTokenCurrent = (decoded, user) =>
+  (decoded.pwd ?? 0) === (user.password_changed_at ? user.password_changed_at.getTime() : 0);

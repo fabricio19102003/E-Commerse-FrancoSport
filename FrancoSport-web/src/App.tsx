@@ -31,6 +31,9 @@ import Unauthorized from '@/pages/Unauthorized';
 // Auth Pages
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import VerifyEmail from '@/pages/VerifyEmail';
 
 // Admin Pages
 import {
@@ -136,6 +139,18 @@ function App() {
               </GuestRoute>
             }
           />
+
+          <Route
+            path={ROUTES.FORGOT_PASSWORD}
+            element={
+              <GuestRoute>
+                <ForgotPassword />
+              </GuestRoute>
+            }
+          />
+          {/* Reset and verification links work logged in or out (the link opens in any browser) */}
+          <Route path={ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
+          <Route path={ROUTES.VERIFY_EMAIL} element={<VerifyEmail />} />
 
           {/* ===== PROTECTED ROUTES (AUTHENTICATED USERS) ===== */}
           <Route element={<MainLayout />}>

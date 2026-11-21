@@ -22,7 +22,8 @@ export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/registro',
   FORGOT_PASSWORD: '/recuperar-contrasena',
-  RESET_PASSWORD: '/restablecer-contrasena/:token',
+  RESET_PASSWORD: '/restablecer-contrasena', // el token va en ?token=
+  VERIFY_EMAIL: '/verificar-correo', // el token va en ?token=
 
   // ===== User Routes (Authenticated) =====
   PROFILE: '/perfil',
