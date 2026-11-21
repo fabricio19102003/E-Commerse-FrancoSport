@@ -15,8 +15,9 @@ export const adminPaymentService = {
         return response.data;
     },
 
-    approvePayment: async (orderId: number) => {
-        const response = await client.post(`/admin/payment/approve/${orderId}`);
+    // paymentProofUrl: the proof the admin is looking at; the API refuses to approve if it was replaced meanwhile
+    approvePayment: async (orderId: number, paymentProofUrl?: string) => {
+        const response = await client.post(`/admin/payment/approve/${orderId}`, { payment_proof_url: paymentProofUrl });
         return response.data;
     }
 };

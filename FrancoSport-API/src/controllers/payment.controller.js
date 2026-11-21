@@ -1,4 +1,17 @@
 import prisma from '../utils/prisma.js';
+import { runTransaction } from '../services/order.service.js';
+import { uploadImageBuffer, deleteStoredImage } from '../services/storage.service.js';
+import { PROJECT_FOLDER } from '../config/cloudinary.js';
+import { projectPublicIdFromUrl } from '../utils/imageIds.js';
+
+const PROOF_FOLDER = `${PROJECT_FOLDER}/payment-proofs`;
+const PROOF_PAYMENT_METHODS = ['QR_TRANSFER', 'BANK_TRANSFER'];
+// A proof can be sent while the payment is pending, or retried after a rejection
+const PROOF_PAYMENT_STATUSES = ['PENDING', 'FAILED'];
+const PROOF_ORDER_STATUSES = ['PENDING', 'PROCESSING'];
+
+const sendError = (res, status, code, message) =>
+  res.status(status).json({ success: false, error: { code, message } });
 
 /**
  * Get Payment Configuration
@@ -28,52 +41,84 @@ export const getPaymentConfig = async (req, res, next) => {
 /**
  * Upload Payment Proof for Order
  * POST /api/payment/proof/:orderId
+ *
+ * Only the order owner, only for QR/bank transfer orders that are not
+ * cancelled and whose payment is pending (or rejected). A foreign order and a
+ * missing order get the same answer. The image is stored only after the rules
+ * pass, and the order is updated with a conditional claim so a concurrent
+ * cancellation or approval wins over a late upload.
  */
 export const uploadPaymentProof = async (req, res, next) => {
   try {
-    const { orderId } = req.params;
-    
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No se ha subido ningún comprobante' 
-      });
+      return sendError(res, 400, 'NO_FILE', 'No se ha subido ningún comprobante');
     }
 
-    // Check if order exists and verify ownership
-    const order = await prisma.order.findUnique({
-      where: { id: parseInt(orderId) }
-    });
+    const orderId = Number(req.params.orderId);
+    const order = Number.isInteger(orderId)
+      ? await prisma.order.findFirst({ where: { id: orderId, user_id: req.user.id } })
+      : null;
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Orden no encontrada'
-      });
+      return sendError(res, 404, 'ORDER_NOT_FOUND', 'Pedido no encontrado');
     }
 
-    // Only the order owner (or admin) can upload payment proof
-    if (order.user_id !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        success: false,
-        message: 'No tienes acceso a este pedido'
-      });
+    if (!PROOF_PAYMENT_METHODS.includes(order.payment_method)) {
+      return sendError(res, 400, 'PROOF_NOT_ALLOWED', 'Este pedido no se paga por transferencia');
     }
-    
-    // Update order with proof URL
-    const updatedOrder = await prisma.order.update({
-      where: { id: parseInt(orderId) },
-      data: {
-        payment_proof_url: req.file.path,
-        payment_status: 'PENDING', // Ensure it's pending
-        // We could also add a note to history
-      }
+    if (order.status === 'CANCELLED') {
+      return sendError(res, 400, 'ORDER_CANCELLED', 'No se puede subir un comprobante a un pedido cancelado');
+    }
+    if (!PROOF_PAYMENT_STATUSES.includes(order.payment_status)) {
+      return sendError(res, 400, 'PAYMENT_PROCESSED', 'El pago de este pedido ya fue procesado');
+    }
+    if (!PROOF_ORDER_STATUSES.includes(order.status)) {
+      return sendError(res, 400, 'PROOF_NOT_ALLOWED', 'El pedido ya no admite comprobantes de pago');
+    }
+
+    const image = await uploadImageBuffer(req.file.buffer, { folder: PROOF_FOLDER });
+
+    const updatedOrder = await runTransaction(prisma, async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          status: order.status,
+          payment_status: { in: PROOF_PAYMENT_STATUSES },
+        },
+        data: { payment_proof_url: image.url, payment_status: 'PENDING' },
+      });
+      if (claimed.count === 0) return null;
+
+      await tx.orderStatusHistory.create({
+        data: {
+          order_id: order.id,
+          status: order.status,
+          notes: order.payment_proof_url ? 'Comprobante de pago reemplazado' : 'Comprobante de pago subido',
+          created_by: req.user.id,
+        },
+      });
+
+      return tx.order.findUnique({ where: { id: order.id } });
     });
 
-    res.json({ 
-      success: true, 
-      message: 'Comprobante subido exitosamente. El pago está en revisión.', 
-      data: updatedOrder 
+    if (updatedOrder && order.payment_proof_url) {
+      // The previous proof is replaced: remove its image (best effort, project folder only)
+      const previousId = projectPublicIdFromUrl(order.payment_proof_url);
+      if (previousId) {
+        deleteStoredImage(previousId).catch((err) => console.error('Failed to delete replaced proof:', err));
+      }
+    }
+
+    if (!updatedOrder) {
+      // The order changed while the image was uploading: do not keep an orphan image
+      deleteStoredImage(image.public_id).catch((err) => console.error('Failed to delete orphan proof:', err));
+      return sendError(res, 409, 'ORDER_CHANGED', 'El pedido cambió mientras tanto; recargue e intente de nuevo');
+    }
+
+    res.json({
+      success: true,
+      message: 'Comprobante subido exitosamente. El pago está en revisión.',
+      data: updatedOrder,
     });
   } catch (error) {
     next(error);

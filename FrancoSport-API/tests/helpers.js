@@ -20,7 +20,82 @@ export const api = {
     if (token) req.set('Authorization', `Bearer ${token}`);
     return req;
   },
+  delete: (path, token) => {
+    const req = request(app).delete(path);
+    if (token) req.set('Authorization', `Bearer ${token}`);
+    return req;
+  },
+  /** multipart upload of one or more files: [{ buffer, filename, contentType }] on `field` */
+  upload: (path, token, field, files) => {
+    const req = request(app).post(path);
+    if (token) req.set('Authorization', `Bearer ${token}`);
+    for (const { buffer, filename, contentType } of files) req.attach(field, buffer, { filename, contentType });
+    return req;
+  },
 };
+
+/** Tiny real images (in memory) and a fake one (text renamed .png) */
+export const images = {
+  png: () => ({
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64'
+    ),
+    filename: 'comprobante.png',
+    contentType: 'image/png',
+  }),
+  jpeg: () => ({
+    buffer: Buffer.from(
+      '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+      'base64'
+    ),
+    filename: 'comprobante.jpg',
+    contentType: 'image/jpeg',
+  }),
+  webp: () => ({
+    buffer: Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x1a, 0, 0, 0]), Buffer.from('WEBPVP8 '), Buffer.alloc(24)]),
+    filename: 'comprobante.webp',
+    contentType: 'image/webp',
+  }),
+  fakePng: () => ({
+    buffer: Buffer.from('esto no es una imagen, es texto renombrado'),
+    filename: 'comprobante.png',
+    contentType: 'image/png',
+  }),
+  text: () => ({ buffer: Buffer.from('hola'), filename: 'nota.txt', contentType: 'text/plain' }),
+  gif: () => ({ buffer: Buffer.from('GIF89a\x01\x00\x01\x00', 'latin1'), filename: 'a.gif', contentType: 'image/gif' }),
+  // A valid PNG header followed by padding, just over the 5 MB limit
+  oversizePng: () => ({
+    buffer: Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(5 * 1024 * 1024),
+    ]),
+    filename: 'grande.png',
+    contentType: 'image/png',
+  }),
+};
+
+let orderCounter = 0;
+/**
+ * An order inserted directly (any status/payment combination), owned by ctx.user
+ */
+export const createOrderRecord = (ctx, overrides = {}) =>
+  prisma.order.create({
+    data: {
+      order_number: `T-${unique()}-${orderCounter++}`,
+      user_id: ctx.user.id,
+      status: 'PENDING',
+      payment_status: 'PENDING',
+      payment_method: 'BANK_TRANSFER',
+      subtotal: '20.00',
+      shipping_cost: '5.00',
+      tax_amount: '0.00',
+      total_amount: '25.00',
+      shipping_address_id: ctx.address.id,
+      shipping_method_id: ctx.method.id,
+      ...overrides,
+    },
+  });
 
 export const createUser = async ({ points = 0, role = 'CUSTOMER' } = {}) => {
   const id = unique();

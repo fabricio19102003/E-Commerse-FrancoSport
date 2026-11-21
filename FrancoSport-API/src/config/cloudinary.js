@@ -9,6 +9,9 @@ import cloudinary from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 
+// Every image of this project lives under this folder
+export const PROJECT_FOLDER = 'franco-sport';
+
 // Configure Cloudinary
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -20,7 +23,7 @@ cloudinary.v2.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary.v2,
   params: {
-    folder: 'franco-sport/products',
+    folder: `${PROJECT_FOLDER}/products`,
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     transformation: [
       {

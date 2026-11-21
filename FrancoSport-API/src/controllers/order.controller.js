@@ -29,6 +29,21 @@ const cannotCancel = (res) =>
     },
   });
 
+const orderChanged = (res) =>
+  res.status(409).json({
+    success: false,
+    error: {
+      code: 'ORDER_CHANGED',
+      message: 'El pedido cambió mientras tanto; recargue e intente de nuevo',
+    },
+  });
+
+// A lost cancel claim on an order that is still cancellable means its payment changed meanwhile
+const orderStillCancellable = async (orderId) => {
+  const current = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  return Boolean(current) && CANCELLABLE_STATUSES.includes(current.status);
+};
+
 /**
  * Get user's orders
  * GET /api/orders
@@ -176,19 +191,31 @@ export const cancelOrder = async (req, res, next) => {
       });
     }
 
+    // An approved payment is refunded by the store, not cancelled by the customer
+    if (order.payment_status === 'PAID') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'CANNOT_CANCEL',
+          message: 'Su pago ya fue aprobado: para cancelar el pedido comuníquese con la tienda',
+        },
+      });
+    }
+
     // Check if order can be cancelled
     if (!CANCELLABLE_STATUSES.includes(order.status)) {
       return cannotCancel(res);
     }
 
     // Cancel order, restore stock and points, and record history atomically.
-    // The helper claims the cancellation, so a repeated or concurrent request restores nothing.
+    // The helper claims the cancellation (status and the payment status read above), so a
+    // repeated or concurrent request restores nothing and an approval landing meanwhile wins.
     const cancelled = await runTransaction(prisma, (tx) =>
       cancelOrderInTransaction(tx, order, { reason, historyNotes: reason })
     );
 
     if (!cancelled) {
-      return cannotCancel(res);
+      return (await orderStillCancellable(order.id)) ? orderChanged(res) : cannotCancel(res);
     }
 
     res.json({
@@ -207,8 +234,9 @@ export const cancelOrder = async (req, res, next) => {
 export const createOrder = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    // Amounts (prices, shipping, totals) are never read from the client
-    const { items, shipping_address_id, shipping_method_id, payment_method, payment_proof_url } = req.body;
+    // Amounts (prices, shipping, totals) and the payment proof are never read from the client:
+    // the proof is uploaded afterwards to POST /api/payment/proof/:orderId
+    const { items, shipping_address_id, shipping_method_id, payment_method } = req.body;
     const redeemPoints = req.body.redeem_points ?? 0;
 
     // Same product/variant twice is rejected, not merged
@@ -358,7 +386,6 @@ export const createOrder = async (req, res, next) => {
           tax_amount: 0,
           discount_amount: discountAmount,
           total_amount: total,
-          payment_proof_url: payment_proof_url || undefined,
           items: {
             create: orderItemsData,
           },

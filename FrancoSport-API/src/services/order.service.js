@@ -71,10 +71,13 @@ export const calculateShippingCost = (method, totalWeightKg) => {
  * claim the cancellation only once; everything else runs only for the winner.
  *
  * @returns {Promise<object|null>} the cancelled order, or null if it was not cancellable
+ *   or its status or payment status changed since `order` was read
  */
 export const cancelOrderInTransaction = async (tx, order, { reason, historyNotes, createdBy, extraData = {} }) => {
   const claimed = await tx.order.updateMany({
-    where: { id: order.id, status: { in: CANCELLABLE_STATUSES } },
+    // payment_status is the value the caller read (and chose extraData from): if an approval
+    // landed in between, the claim is lost instead of cancelling with a stale payment status
+    where: { id: order.id, status: { in: CANCELLABLE_STATUSES }, payment_status: order.payment_status },
     data: {
       status: 'CANCELLED',
       cancelled_at: new Date(),
