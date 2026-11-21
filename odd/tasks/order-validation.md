@@ -12,10 +12,11 @@ Branch fix/order-validation (from main). First tests of the API (none existed).
 - S6 Every rule above is enforced in the API with clear Spanish error messages in the existing error format; existing successful flows (create order with valid data, cancel, admin approve) keep working; no schema change unless strictly needed (then a documented `prisma db push`-compatible change).
 
 ## Tasks
-- [ ] T1 (S1-S7) Test setup (Vitest + supertest + throwaway MySQL) and the order fixes, test-first — worker — Risk: items 1 and 2 — commit: pending
-- [ ] T2 (S2-S5) Independent verification — gentle-ai-verify — commit: n/a
+- [x] T1 (S1-S7) Test setup (Vitest + supertest + throwaway MySQL) and the order fixes, test-first — worker — Risk: items 1 and 2 — commits e213e5c, a877694
+- [x] T2 (S2-S7) Independent verification — gentle-ai-verify — commit: n/a
 
 ## Log
 - L1 (user, after the review of 2026-11-21): "ok si metele pa con lo de los pedidos".
 - L2: review findings (Engram franco-sport/initial-review): order.routes.js validates only that items is an array; order.controller.js createOrder (stock check `stock < quantity`, subtotal, shipping hardcoded 0 at ~304, redeem_points unvalidated); web Checkout.tsx:168 sends shipping_method_id 1; API has no tests, no lockfile (package-lock.json is gitignored) and no CI.
 - L3: admin PATCH status rejected CANCELLED before; worker allows it through the shared cancel helper. User then chose: "ok si me parece buena idea que el admin pueda reabrir un pedido cancelado" → S7 (reopen to PENDING re-reserving stock and points, or nothing changes).
+- L4: worker RED 67 failed → GREEN 88. Verify: S2-S6 met, blocker B1 (legacy reopen re-deducted 0 points) + advisories (admin status race 7/55, cancel/create deadlock 500, stale balance in message, REFUNDED payment on reopen, weak test-DB guard) → fixed test-first (RED 9 failed) → 105 tests green (worker twice, parent once). Deadlock retry has no deterministic test (loop only). Web checkout not run in a browser; web tsc errors unchanged (15, unrelated). Not pushed: public repo, waiting for the user.
