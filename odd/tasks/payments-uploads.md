@@ -1,0 +1,18 @@
+# payments-uploads
+Restrict image uploads and harden manual payment approval in the Franco Sport API.
+Branch fix/payments-uploads (from fix/order-validation, PR #7). Step 2 of the review.
+
+## Specs
+- S1 User request: "ok dale entonces sigamos por donde me propones", accepting: "Seguir con el punto 2 de la revisión: restringir la subida de imágenes a Cloudinary y proteger la aprobación de pagos." Review findings: "cualquier usuario con sesión iniciada puede subir imágenes a tu cuenta de Cloudinary" and "se puede aprobar el pago de un pedido cancelado, y la aprobación no queda protegida si falla a mitad de camino".
+- S2 Uploads: the generic `/api/upload/image(s)` routes are admin-only (same 403 as other admin routes for customers and guests). Every customer flow that uploads today (payment proof, and any other found: community posts, reviews, avatar…) keeps working through its own endpoint that only accepts images (jpg/png/webp, ≤ 5 MB, real image content not just extension) for the customer's own resource; list each one found and how it is limited (per-user rate limit). Admin image delete works for public IDs that contain slashes (e.g. `franco-sport/products/x`) and only for this project's folder.
+- S3 Payment proof (`POST /api/payments/proof/:orderId`): only the order's owner, only for orders paid by `QR_TRANSFER` or `BANK_TRANSFER` that are not cancelled and whose payment is still pending (or rejected, to retry); a foreign order and a missing order get the same response; replacing a proof is allowed while pending; the order history records it.
+- S4 Payment approval (`POST /api/admin/payments/approve/:orderId`, and rejection if it exists): admin only; only orders whose payment is pending with a proof (or COD rules, if any, unchanged); never cancelled, already paid or refunded orders (clear Spanish 4xx); atomic conditional claim inside one transaction (status, payment_status, history, notifications/points as today); a repeated or concurrent approval changes nothing more (409 "El pedido cambió mientras tanto; recargue e intente de nuevo", same as PR #7).
+- S5 Tests through HTTP for every rule (status, exact Spanish message, nothing changed on rejection), using the test setup of PR #7; Cloudinary is never called in tests (mock only the storage adapter). Existing admin and customer flows keep working; Spanish messages; no schema change unless needed.
+
+## Tasks
+- [ ] T1 (S1-S5) Upload restriction, payment proof and approval hardening, test-first — worker — Risk: item 2 — commit: pending
+- [ ] T2 (S2-S4) Independent verification — gentle-ai-verify — commit: n/a
+
+## Log
+- L1 (user): "ok dale entonces sigamos por donde me propones" → PR #7 opened (issue #6); then step 2 of the review (this feature), then step 3 (web build and vulnerable dependencies).
+- L2: routes found: `routes/upload.routes.js` (POST /image and /images only `authenticate`; DELETE /image/:publicId requireAdmin), `routes/payment.routes.js` (POST /proof/:orderId authenticate + upload.single), `routes/admin/payment.routes.js` (POST /approve/:orderId). Web callers of uploads: api/upload.service.ts, Checkout.tsx, admin pages (AdminProductForm, AdminPromotions, AdminOrderDetail).
