@@ -7,13 +7,20 @@ import { ArrowLeft, Package, MapPin, CreditCard, Calendar, Truck } from 'lucide-
 import { getOrder } from '@/api/orders.service';
 import { ROUTES, generateRoute } from '@/constants/routes';
 import type { Order } from '@/types';
+import { paymentService } from '@/api/payment.service';
+import { getErrorMessage } from '@/api/axios';
 import toast from 'react-hot-toast';
+
+const MAX_PROOF_BYTES = 5 * 1024 * 1024;
+const PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -35,6 +42,36 @@ const OrderDetail: React.FC = () => {
     }
   };
 
+  const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file && !PROOF_TYPES.includes(file.type)) {
+      toast.error('Solo se permiten imágenes JPG, PNG y WEBP');
+      e.target.value = '';
+      return;
+    }
+    if (file && file.size > MAX_PROOF_BYTES) {
+      toast.error('La imagen no puede superar los 5 MB');
+      e.target.value = '';
+      return;
+    }
+    setProofFile(file);
+  };
+
+  const handleUploadProof = async () => {
+    if (!order || !proofFile) return;
+    try {
+      setIsUploadingProof(true);
+      await paymentService.uploadPaymentProof(order.id, proofFile);
+      toast.success('Comprobante subido. El pago está en revisión.');
+      setProofFile(null);
+      await loadOrder(order.order_number);
+    } catch (error) {
+      toast.error(getErrorMessage(error) || 'No se pudo subir el comprobante');
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -44,6 +81,12 @@ const OrderDetail: React.FC = () => {
   }
 
   if (!order) return null;
+
+  // Same rule as the API: transfer orders that are not cancelled and whose payment is pending (or rejected)
+  const canUploadProof =
+    ['BANK_TRANSFER', 'QR_TRANSFER'].includes(order.payment_method) &&
+    ['PENDING', 'PROCESSING'].includes(order.status) &&
+    ['PENDING', 'FAILED'].includes(order.payment_status);
 
   return (
     <div className="py-12 bg-background min-h-screen">
@@ -206,9 +249,37 @@ const OrderDetail: React.FC = () => {
                   {order.payment_status}
                 </Badge>
                 
-                {order.payment_method === 'BANK_TRANSFER' && order.payment_status === 'PENDING' && (
+                {order.payment_proof_url && (
+                  <p className="mt-3">
+                    <a href={order.payment_proof_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      Ver comprobante enviado
+                    </a>
+                  </p>
+                )}
+
+                {canUploadProof && order.payment_proof_url && order.payment_status === 'PENDING' && (
                   <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-500 text-xs">
                     Tu pago está siendo verificado por el administrador.
+                  </div>
+                )}
+
+                {canUploadProof && !order.payment_proof_url && (
+                  <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-500 text-xs">
+                    Falta el comprobante de pago. Súbelo para que el administrador pueda verificar tu pago.
+                  </div>
+                )}
+
+                {canUploadProof && (
+                  <div className="mt-3 space-y-2">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleProofChange}
+                      className="block w-full text-xs text-text-secondary"
+                    />
+                    <Button size="sm" onClick={handleUploadProof} disabled={!proofFile || isUploadingProof}>
+                      {isUploadingProof ? 'Subiendo...' : order.payment_proof_url ? 'Reemplazar comprobante' : 'Subir comprobante'}
+                    </Button>
                   </div>
                 )}
               </div>

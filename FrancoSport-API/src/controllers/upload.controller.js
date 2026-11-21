@@ -5,7 +5,16 @@
  * Manejo de upload de imágenes a Cloudinary
  */
 
-import { cloudinary } from '../config/cloudinary.js';
+import { uploadImageBuffer, deleteStoredImage } from '../services/storage.service.js';
+import { PROJECT_FOLDER } from '../config/cloudinary.js';
+
+const UPLOAD_FOLDER = `${PROJECT_FOLDER}/products`;
+
+// Only this project's folder, no empty or relative segments
+const isProjectPublicId = (publicId) =>
+  /^[\w\-. ]+(\/[\w\-. ]+)+$/.test(publicId) &&
+  publicId.startsWith(`${PROJECT_FOLDER}/`) &&
+  publicId.split('/').every((segment) => segment !== '.' && segment !== '..');
 
 /**
  * Upload single image to Cloudinary
@@ -23,17 +32,17 @@ export const uploadImage = async (req, res, next) => {
       });
     }
 
-    // Multer + Cloudinary Storage ya subió el archivo
-    // req.file.path contiene la URL de Cloudinary
+    // The middleware already validated the image content; store it now
+    const image = await uploadImageBuffer(req.file.buffer, { folder: UPLOAD_FOLDER });
     res.json({
       success: true,
       data: {
-        url: req.file.path,
-        public_id: req.file.filename,
-        width: req.file.width,
-        height: req.file.height,
-        format: req.file.format,
-        size: req.file.bytes,
+        url: image.url,
+        public_id: image.public_id,
+        width: image.width,
+        height: image.height,
+        format: image.format,
+        size: image.bytes,
       },
       message: 'Imagen subida exitosamente',
     });
@@ -58,14 +67,18 @@ export const uploadMultipleImages = async (req, res, next) => {
       });
     }
 
-    const uploadedImages = req.files.map((file) => ({
-      url: file.path,
-      public_id: file.filename,
-      width: file.width,
-      height: file.height,
-      format: file.format,
-      size: file.bytes,
-    }));
+    const uploadedImages = [];
+    for (const file of req.files) {
+      const image = await uploadImageBuffer(file.buffer, { folder: UPLOAD_FOLDER });
+      uploadedImages.push({
+        url: image.url,
+        public_id: image.public_id,
+        width: image.width,
+        height: image.height,
+        format: image.format,
+        size: image.bytes,
+      });
+    }
 
     res.json({
       success: true,
@@ -79,14 +92,24 @@ export const uploadMultipleImages = async (req, res, next) => {
 
 /**
  * Delete image from Cloudinary
- * DELETE /api/upload/image/:publicId
+ * DELETE /api/upload/image/<public id with slashes>
  */
 export const deleteImage = async (req, res, next) => {
   try {
-    const { publicId } = req.params;
+    const publicId = req.params[0];
+
+    if (!isProjectPublicId(publicId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PUBLIC_ID',
+          message: 'Identificador de imagen inválido',
+        },
+      });
+    }
 
     // Delete from Cloudinary
-    const result = await cloudinary.v2.uploader.destroy(publicId);
+    const result = await deleteStoredImage(publicId);
 
     if (result.result !== 'ok') {
       return res.status(404).json({

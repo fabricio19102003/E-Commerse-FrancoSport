@@ -13,4 +13,8 @@ export const testEnv = {
   DATABASE_URL: TEST_DATABASE_URL,
   JWT_SECRET: 'test-jwt-secret',
   JWT_REFRESH_SECRET: 'test-jwt-refresh-secret',
+  // Empty on purpose: dotenv never overrides them, so no real Cloudinary account is ever reachable
+  CLOUDINARY_CLOUD_NAME: '',
+  CLOUDINARY_API_KEY: '',
+  CLOUDINARY_API_SECRET: '',
 };

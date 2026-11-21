@@ -9,8 +9,7 @@ import { getAddresses, createAddress } from '@/api/users.service';
 import { createOrder } from '@/api/orders.service';
 import { getShippingMethods } from '@/api/shipping.service';
 import { getErrorMessage } from '@/api/axios';
-import { uploadImage } from '@/api/upload.service';
-import { ROUTES } from '@/constants/routes';
+import { ROUTES, generateRoute } from '@/constants/routes';
 import type { Address, AvailableShippingMethod } from '@/types';
 import toast from 'react-hot-toast';
 import { logBeginCheckout, logPurchase } from '@/api/analytics.service';
@@ -180,20 +179,6 @@ const Checkout: React.FC = () => {
     try {
       setIsPlacingOrder(true);
       
-      let paymentProofUrl = '';
-
-      if (paymentMethod === 'QR_TRANSFER' && paymentProof) {
-        try {
-          const uploadResult = await uploadImage(paymentProof);
-          paymentProofUrl = uploadResult.url;
-        } catch (uploadError) {
-          console.error('Error uploading proof:', uploadError);
-          toast.error('Error al subir el comprobante. Intenta de nuevo.');
-          setIsPlacingOrder(false);
-          return;
-        }
-      }
-      
       const orderData = {
         items: items.map(item => ({
           product_id: item.product_id,
@@ -203,16 +188,35 @@ const Checkout: React.FC = () => {
         shipping_address_id: selectedAddressId,
         payment_method: paymentMethod === 'QR_TRANSFER' ? 'BANK_TRANSFER' : 'CASH_ON_DELIVERY',
         shipping_method_id: selectedShippingMethodId,
-        payment_proof_url: paymentProofUrl || undefined,
         redeem_points: redeemPoints > 0 ? redeemPoints : undefined
       };
 
       const newOrder = await createOrder(orderData);
-      
+
+      // The proof is uploaded to the order that was just created (only its owner can do it)
+      let proofUploadFailed = false;
+      if (paymentMethod === 'QR_TRANSFER' && paymentProof) {
+        try {
+          await paymentService.uploadPaymentProof(newOrder.id, paymentProof);
+        } catch (uploadError) {
+          console.error('Error uploading proof:', uploadError);
+          proofUploadFailed = true;
+        }
+      }
+
       // Track purchase
       logPurchase(newOrder.id.toString(), items, subtotal + shippingCost - pointsValue);
 
       clearCart();
+      if (proofUploadFailed) {
+        // The order exists: send the customer to its detail page, where the proof can be uploaded again
+        toast.error(
+          'Su pedido fue creado, pero el comprobante no se pudo subir: súbalo desde el detalle del pedido',
+          { duration: 10000 }
+        );
+        navigate(generateRoute.orderDetail(newOrder.order_number));
+        return;
+      }
       toast.success('¡Pedido realizado con éxito!');
       navigate(ROUTES.HOME); // Ideally redirect to order success page
     } catch (error) {

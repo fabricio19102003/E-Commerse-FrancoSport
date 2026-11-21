@@ -271,6 +271,13 @@ docker rm -f fs-test-mysql
 
 La URL de pruebas (`mysql://root:test@127.0.0.1:33306/fs_test`) y los secretos JWT de prueba están en
 `tests/test-env.js`; se puede cambiar la base con `TEST_DATABASE_URL`.
+Las pruebas nunca llaman a Cloudinary: se simula solo el adaptador `src/services/storage.service.js`.
+
+## 🖼️ Subida de imágenes y pagos por transferencia
+
+- `POST /api/upload/image(s)` y `DELETE /api/upload/image/<public id>`: solo administradores. Solo JPG/PNG/WEBP, máx. 5 MB, se valida el contenido real; borrar solo funciona dentro de la carpeta `franco-sport/`.
+- Clientes: `POST /api/payment/proof/:orderId` (campo `image`), solo el dueño del pedido, pedidos `QR_TRANSFER`/`BANK_TRANSFER` no cancelados con pago pendiente (o rechazado). Máx. 10 subidas por usuario cada 15 minutos. El pedido se crea primero (`payment_proof_url` ya no se acepta al crearlo) y el comprobante se sube después.
+- `POST /api/admin/payment/approve/:orderId`: solo pedidos con pago pendiente y comprobante, sin cancelar ni reembolsar; una aprobación repetida o simultánea responde 409.
 
 ## 🐛 Debugging
 
