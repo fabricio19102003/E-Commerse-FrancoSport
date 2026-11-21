@@ -595,7 +595,7 @@ const Checkout: React.FC = () => {
                         {items.map(item => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span>{item.quantity}x {item.product?.name}</span>
-                            <span className="font-medium">{formatCurrency(item.subtotal || 0)}</span>
+                            <span className="font-medium">{formatCurrency(Number(item.price_at_add) * item.quantity)}</span>
                           </div>
                         ))}
                       </div>

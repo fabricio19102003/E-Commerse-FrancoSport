@@ -7,7 +7,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { adminReviewsService } from '@/api/admin';
-import type { Review } from '@/api/admin/reviews.service';
+import type { Review, ReviewFilters } from '@/api/admin/reviews.service';
+import { getApiErrorMessage } from '@/utils/apiError';
 import {
   Search,
   Trash2,
@@ -25,7 +26,7 @@ import { useConfirm } from '@/hooks/useConfirm';
 const AdminReviews: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const { confirm } = useConfirm();
@@ -36,15 +37,15 @@ const AdminReviews: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      const filters: any = { search: searchTerm };
+      const filters: ReviewFilters = { search: searchTerm };
       if (statusFilter === 'pending') filters.is_approved = false;
       if (statusFilter === 'approved') filters.is_approved = true;
 
       const response = await adminReviewsService.getReviews(filters);
       setReviews(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching reviews:', err);
-      setError(err.response?.data?.error?.message || 'Error al cargar reseñas');
+      setError(getApiErrorMessage(err, 'Error al cargar reseñas'));
     } finally {
       setIsLoading(false);
     }
@@ -59,9 +60,9 @@ const AdminReviews: React.FC = () => {
     try {
       await adminReviewsService.approveReview(id);
       fetchReviews();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error approving review:', err);
-      alert(err.response?.data?.error?.message || 'Error al aprobar reseña');
+      alert(getApiErrorMessage(err, 'Error al aprobar reseña'));
     }
   };
 
@@ -80,9 +81,9 @@ const AdminReviews: React.FC = () => {
       await adminReviewsService.deleteReview(id);
       alert('Reseña eliminada exitosamente');
       fetchReviews();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting review:', err);
-      alert(err.response?.data?.error?.message || 'Error al eliminar reseña');
+      alert(getApiErrorMessage(err, 'Error al eliminar reseña'));
     }
   };
 
@@ -141,7 +142,7 @@ const AdminReviews: React.FC = () => {
             <Filter className="w-5 h-5 text-neutral-500" />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
               className="px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
             >
               <option value="all">Todos los estados</option>

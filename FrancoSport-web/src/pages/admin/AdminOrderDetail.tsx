@@ -83,7 +83,7 @@ const AdminOrderDetail: React.FC = () => {
       fetchOrder(); // Reload data
     } catch (err) {
       console.error('Error updating status:', err);
-      toast.error('Error al actualizar el estado');
+      toast.error(getErrorMessage(err) || 'Error al actualizar el estado');
     }
   };
 
@@ -169,10 +169,10 @@ const AdminOrderDetail: React.FC = () => {
           </button>
           <div>
             <h1 className="text-3xl font-black text-white mb-2">
-              Pedido {order.orderNumber}
+              Pedido {order.order_number}
             </h1>
             <p className="text-neutral-400">
-              Creado el {formatDate(order.createdAt)}
+              Creado el {formatDate(order.created_at)}
             </p>
           </div>
         </div>
@@ -258,7 +258,7 @@ const AdminOrderDetail: React.FC = () => {
             <h2 className="text-lg font-bold text-white mb-4">Historial de Estados</h2>
             
             <div className="space-y-4">
-              {order.statusHistory?.map((history: any, index: number) => {
+              {order.status_history?.map((history: any, index: number) => {
                 const config = getStatusConfig(history.status);
                 const HistoryIcon = config.icon;
 
@@ -268,7 +268,7 @@ const AdminOrderDetail: React.FC = () => {
                       <div className="w-10 h-10 rounded-full bg-black border-2 border-neutral-800 flex items-center justify-center">
                         <HistoryIcon className="w-5 h-5 text-primary" />
                       </div>
-                      {index < order.statusHistory.length - 1 && (
+                      {index < order.status_history.length - 1 && (
                         <div className="absolute left-5 top-10 bottom-0 w-0.5 bg-neutral-800" style={{ height: '40px' }} />
                       )}
                     </div>
@@ -278,7 +278,7 @@ const AdminOrderDetail: React.FC = () => {
                           {config.label}
                         </span>
                         <span className="text-sm text-neutral-500">
-                          {formatDate(history.createdAt)}
+                          {formatDate(history.created_at)}
                         </span>
                       </div>
                       <p className="text-sm text-neutral-400 mt-2">{history.notes}</p>
@@ -323,16 +323,16 @@ const AdminOrderDetail: React.FC = () => {
               <h2 className="text-lg font-bold text-white">Dirección de Envío</h2>
             </div>
             
-            {order.shippingAddress ? (
+            {order.shipping_address ? (
               <div className="text-sm space-y-1">
-                <p className="font-medium text-white">{order.shippingAddress.fullName}</p>
-                <p className="text-neutral-400">{order.shippingAddress.streetAddress}</p>
+                <p className="font-medium text-white">{order.shipping_address.full_name}</p>
+                <p className="text-neutral-400">{order.shipping_address.street_address}</p>
                 <p className="text-neutral-400">
-                  {order.shippingAddress.city}, {order.shippingAddress.state}
+                  {order.shipping_address.city}, {order.shipping_address.state}
                 </p>
-                <p className="text-neutral-400">{order.shippingAddress.postalCode}</p>
-                <p className="text-neutral-400">{order.shippingAddress.country}</p>
-                <p className="text-neutral-400 mt-2">{order.shippingAddress.phone}</p>
+                <p className="text-neutral-400">{order.shipping_address.postal_code}</p>
+                <p className="text-neutral-400">{order.shipping_address.country}</p>
+                <p className="text-neutral-400 mt-2">{order.shipping_address.phone}</p>
               </div>
             ) : (
               <p className="text-sm text-neutral-400">No disponible</p>
@@ -346,19 +346,19 @@ const AdminOrderDetail: React.FC = () => {
               <h2 className="text-lg font-bold text-white">Método de Envío</h2>
             </div>
             
-            {order.shippingMethod ? (
+            {order.shipping_method ? (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Método</span>
-                  <span className="text-white">{order.shippingMethod.name}</span>
+                  <span className="text-white">{order.shipping_method.name}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Costo</span>
-                  <span className="text-white">${parseFloat(order.shippingMethod.cost).toFixed(2)}</span>
+                  <span className="text-white">${parseFloat(order.shipping_cost || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Estimado</span>
-                  <span className="text-white">{order.shippingMethod.estimatedDays}</span>
+                  <span className="text-white">{order.shipping_method.estimated_days_min}-{order.shipping_method.estimated_days_max} días</span>
                 </div>
               </div>
             ) : (
@@ -377,17 +377,17 @@ const AdminOrderDetail: React.FC = () => {
               <div>
                 <p className="text-sm text-neutral-400">Estado del Pago</p>
                 <span className="inline-block mt-1 px-3 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full">
-                  {order.paymentStatus}
+                  {order.payment_status}
                 </span>
               </div>
               <div>
                 <p className="text-sm text-neutral-400">Método</p>
-                <p className="text-sm font-medium text-white">{order.paymentMethod || 'No especificado'}</p>
+                <p className="text-sm font-medium text-white">{order.payment_method || 'No especificado'}</p>
               </div>
-              {order.paymentId && (
+              {order.payment_id && (
                 <div>
                   <p className="text-sm text-neutral-400">ID de Transacción</p>
-                  <p className="text-xs font-mono text-neutral-500">{order.paymentId}</p>
+                  <p className="text-xs font-mono text-neutral-500">{order.payment_id}</p>
                 </div>
               )}
               {order.paidAt && (
@@ -413,7 +413,7 @@ const AdminOrderDetail: React.FC = () => {
                       className="w-full h-auto rounded-lg border border-neutral-700 hover:opacity-90 transition-opacity" 
                     />
                   </a>
-                  {(order.payment_status === 'PENDING' || order.paymentStatus === 'PENDING') && (
+                  {order.payment_status === 'PENDING' && (
                       <button 
                         onClick={handleApprovePayment}
                         className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
@@ -453,6 +453,7 @@ const AdminOrderDetail: React.FC = () => {
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   >
                     <option value="">Selecciona un estado</option>
+                    {order.status === 'CANCELLED' && <option value="PENDING">Pendiente (reabrir)</option>}
                     <option value="PROCESSING">Procesando</option>
                     <option value="SHIPPED">Enviado</option>
                     <option value="DELIVERED">Entregado</option>

@@ -14,7 +14,7 @@ export interface ModalProps {
   /** Modal description */
   description?: string;
   /** Modal content */
-  children: React.ReactNode;
+  children?: React.ReactNode;
   /** Modal size */
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   /** Show close button */

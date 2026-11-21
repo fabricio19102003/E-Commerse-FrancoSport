@@ -3,10 +3,10 @@ import { formatCurrency } from '@/utils/currency';
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
-import { Card, Badge, Button } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
 import { Grid, List, ShoppingCart, Search, SlidersHorizontal } from 'lucide-react';
 import { getProducts, getCategories, getBrands } from '@/api/products.service';
-import type { Product, Category, Brand } from '@/types';
+import type { Product, Category, Brand, ProductFilters } from '@/types';
 import { generateRoute } from '@/constants/routes';
 import { useCartStore } from '@/store';
 import toast from 'react-hot-toast';
@@ -19,7 +19,7 @@ const Products: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [totalProducts, setTotalProducts] = useState(0);
 
   // UI State
@@ -94,7 +94,7 @@ const Products: React.FC = () => {
   }, [searchTerm, selectedCategory, selectedBrand, priceRange]);
 
   const updateUrlParams = () => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (searchTerm) params.search = searchTerm;
     
     if (selectedCategory) {
@@ -122,7 +122,7 @@ const Products: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      const filters: any = {};
+      const filters: ProductFilters = {};
       if (searchTerm) filters.search = searchTerm;
       if (selectedCategory) filters.category_id = selectedCategory;
       if (selectedBrand) filters.brand_id = selectedBrand;

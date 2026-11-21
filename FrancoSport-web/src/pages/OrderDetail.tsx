@@ -4,12 +4,13 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Badge } from '@/components/ui';
 import { ArrowLeft, Package, MapPin, CreditCard, Calendar, Truck } from 'lucide-react';
-import { getOrder } from '@/api/orders.service';
+import { getOrder, cancelOrder } from '@/api/orders.service';
 import { ROUTES, generateRoute } from '@/constants/routes';
 import type { Order } from '@/types';
 import { paymentService } from '@/api/payment.service';
 import { useAuthStore } from '@/store';
 import { getErrorMessage } from '@/api/axios';
+import { useConfirm } from '@/hooks/useConfirm';
 import toast from 'react-hot-toast';
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024;
@@ -19,10 +20,12 @@ const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { confirm } = useConfirm();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -74,6 +77,29 @@ const OrderDetail: React.FC = () => {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    const confirmed = await confirm({
+      title: 'Cancelar pedido',
+      message: `¿Seguro que desea cancelar el pedido ${order.order_number}?`,
+      confirmText: 'Sí, cancelar pedido',
+      cancelText: 'No, conservarlo',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      setIsCancelling(true);
+      await cancelOrder(order.order_number, 'Cancelado por el cliente');
+      toast.success('Pedido cancelado');
+      await loadOrder(order.order_number);
+    } catch (error) {
+      toast.error(getErrorMessage(error) || 'No se pudo cancelar el pedido');
+      await loadOrder(order.order_number);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -119,7 +145,7 @@ const OrderDetail: React.FC = () => {
             </div>
             
             {order.status === 'PENDING' && order.payment_status !== 'PAID' && (
-              <Button variant="danger" size="sm">
+              <Button variant="danger" size="sm" onClick={handleCancelOrder} isLoading={isCancelling}>
                 Cancelar Pedido
               </Button>
             )}

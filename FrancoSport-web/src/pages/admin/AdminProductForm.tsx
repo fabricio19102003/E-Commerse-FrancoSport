@@ -24,21 +24,23 @@ import {
 import toast from 'react-hot-toast';
 
 // Validation Schema
+// Inputs read with valueAsNumber give NaN when empty: zod 4 would answer in English, so every number states its message
+const NUMBER_REQUIRED = 'Ingresa un número válido';
 const productSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
   slug: z.string().min(3, 'El slug debe tener al menos 3 caracteres'),
   short_description: z.string().optional(),
   description: z.string().min(10, 'La descripción debe tener al menos 10 caracteres'),
-  price: z.number().min(0, 'El precio debe ser mayor a 0'),
-  compare_at_price: z.number().optional(),
-  cost_price: z.number().min(0, 'El costo debe ser mayor a 0'),
+  price: z.number({ error: NUMBER_REQUIRED }).min(0, 'El precio debe ser mayor a 0'),
+  compare_at_price: z.number({ error: NUMBER_REQUIRED }).optional(),
+  cost_price: z.number({ error: NUMBER_REQUIRED }).min(0, 'El costo debe ser mayor a 0'),
   sku: z.string().min(2, 'El SKU debe tener al menos 2 caracteres'),
   barcode: z.string().optional(),
-  stock: z.number().min(0, 'El stock no puede ser negativo'),
-  low_stock_threshold: z.number().min(0, 'El umbral debe ser mayor a 0'),
-  weight: z.number().min(0, 'El peso debe ser mayor a 0'),
-  category_id: z.number().min(1, 'Selecciona una categoría'),
-  brand_id: z.number().min(1, 'Selecciona una marca'),
+  stock: z.number({ error: NUMBER_REQUIRED }).min(0, 'El stock no puede ser negativo'),
+  low_stock_threshold: z.number({ error: NUMBER_REQUIRED }).min(0, 'El umbral debe ser mayor a 0'),
+  weight: z.number({ error: NUMBER_REQUIRED }).min(0, 'El peso debe ser mayor a 0'),
+  category_id: z.number({ error: 'Selecciona una categoría' }).min(1, 'Selecciona una categoría'),
+  brand_id: z.number({ error: 'Selecciona una marca' }).min(1, 'Selecciona una marca'),
   is_featured: z.boolean(),
   is_active: z.boolean(),
   meta_title: z.string().optional(),
@@ -518,7 +520,7 @@ const AdminProductForm: React.FC = () => {
                 <input
                   type="number"
                   step="0.01"
-                  {...register('compare_at_price', { valueAsNumber: true })}
+                  {...register('compare_at_price', { setValueAs: (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)) })}
                   className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   placeholder="0.00"
                 />
@@ -599,6 +601,9 @@ const AdminProductForm: React.FC = () => {
                   className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   placeholder="10"
                 />
+                {errors.low_stock_threshold && (
+                  <p className="text-red-500 text-sm mt-1">{errors.low_stock_threshold.message}</p>
+                )}
               </div>
 
               <div className="md:col-span-2">
