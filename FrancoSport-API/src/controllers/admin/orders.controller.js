@@ -6,6 +6,31 @@
  */
 
 import prisma from '../../utils/prisma.js';
+import {
+  CANCELLABLE_STATUSES,
+  OrderError,
+  cancelOrderInTransaction,
+  reopenOrderInTransaction,
+  runTransaction,
+} from '../../services/order.service.js';
+
+const sendOrderError = (res, error) =>
+  res.status(error.status).json({
+    success: false,
+    error: {
+      code: error.code,
+      message: error.message,
+    },
+  });
+
+const cannotCancelAdmin = (res) =>
+  res.status(400).json({
+    success: false,
+    error: {
+      code: 'CANNOT_CANCEL_ORDER',
+      message: 'El pedido no puede ser cancelado en su estado actual',
+    },
+  });
 
 /**
  * Get all orders (admin view)
@@ -215,6 +240,54 @@ export const updateOrderStatus = async (req, res, next) => {
       });
     }
 
+    // Cancelling and reopening move stock and points, so they share the cancel/reopen helpers
+    if (status === 'CANCELLED') {
+      if (!CANCELLABLE_STATUSES.includes(order.status)) {
+        return cannotCancelAdmin(res);
+      }
+      const cancelled = await runTransaction(prisma, (tx) =>
+        cancelOrderInTransaction(tx, order, {
+          reason: notes || 'Cancelado por administrador',
+          historyNotes: notes || 'Cancelado por administrador',
+          createdBy: req.user.id,
+          extraData: { payment_status: order.payment_status === 'PAID' ? 'REFUNDED' : order.payment_status },
+        })
+      );
+      if (!cancelled) {
+        return cannotCancelAdmin(res);
+      }
+      return res.json({
+        success: true,
+        data: cancelled,
+        message: 'Estado del pedido actualizado exitosamente',
+      });
+    }
+
+    if (order.status === 'CANCELLED') {
+      // The only way out of CANCELLED is reopening to PENDING
+      if (status !== 'PENDING') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'ORDER_CANCELLED',
+            message: 'Un pedido cancelado solo puede reabrirse a estado PENDING',
+          },
+        });
+      }
+      const reopened = await runTransaction(prisma, (tx) =>
+        reopenOrderInTransaction(tx, order, {
+          historyNotes: notes || 'Pedido reabierto por el administrador',
+          createdBy: req.user.id,
+        })
+      );
+      return res.json({
+        success: true,
+        // null: another request reopened it first, nothing more was moved
+        data: reopened ?? (await prisma.order.findUnique({ where: { id: order.id } })),
+        message: 'Estado del pedido actualizado exitosamente',
+      });
+    }
+
     // Update data
     const updateData = {
       status,
@@ -231,42 +304,57 @@ export const updateOrderStatus = async (req, res, next) => {
       updateData.delivered_at = new Date();
     }
 
-    // Update order
-    const updatedOrder = await prisma.order.update({
-      where: { order_number: orderNumber },
-      data: updateData,
-    });
+    // The transition is a conditional claim on the status that was read: if a
+    // cancellation or another change got there first, nothing is overwritten.
+    const updatedOrder = await runTransaction(prisma, async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: order.id, status: order.status },
+        data: updateData,
+      });
+      if (claimed.count === 0) return null;
 
-    // Create status history entry
-    await prisma.orderStatusHistory.create({
-      data: {
-        order_id: order.id,
-        status,
-        notes: notes || `Estado cambiado a ${status}`,
-        created_by: req.user.id,
-      },
-    });
+      await tx.orderStatusHistory.create({
+        data: {
+          order_id: order.id,
+          status,
+          notes: notes || `Estado cambiado a ${status}`,
+          created_by: req.user.id,
+        },
+      });
 
-    // Award Loyalty Points if DELIVERED
-    if (status === 'DELIVERED' && order.status !== 'DELIVERED') {
-      const pointsToAward = Math.floor(Number(order.total_amount)); // 1 point per $1
-      
-      if (pointsToAward > 0) {
-        await prisma.user.update({
-          where: { id: order.user_id },
-          data: { loyalty_points: { increment: pointsToAward } },
-        });
+      // Award Loyalty Points if DELIVERED (same transaction as the claim, so exactly once)
+      if (status === 'DELIVERED' && order.status !== 'DELIVERED') {
+        const pointsToAward = Math.floor(Number(order.total_amount)); // 1 point per $1
 
-        await prisma.loyaltyTransaction.create({
-          data: {
-            user_id: order.user_id,
-            order_id: order.id,
-            points: pointsToAward,
-            type: 'EARNED',
-            description: `Puntos ganados por pedido #${order.order_number}`,
-          },
-        });
+        if (pointsToAward > 0) {
+          await tx.user.update({
+            where: { id: order.user_id },
+            data: { loyalty_points: { increment: pointsToAward } },
+          });
+
+          await tx.loyaltyTransaction.create({
+            data: {
+              user_id: order.user_id,
+              order_id: order.id,
+              points: pointsToAward,
+              type: 'EARNED',
+              description: `Puntos ganados por pedido #${order.order_number}`,
+            },
+          });
+        }
       }
+
+      return tx.order.findUnique({ where: { id: order.id } });
+    });
+
+    if (!updatedOrder) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'ORDER_CHANGED',
+          message: 'El pedido cambió mientras tanto; recargue e intente de nuevo',
+        },
+      });
     }
 
     // TODO: Send email notification to customer
@@ -277,6 +365,7 @@ export const updateOrderStatus = async (req, res, next) => {
       message: 'Estado del pedido actualizado exitosamente',
     });
   } catch (error) {
+    if (error instanceof OrderError) return sendOrderError(res, error);
     next(error);
   }
 };
@@ -360,7 +449,6 @@ export const cancelOrder = async (req, res, next) => {
 
     const order = await prisma.order.findUnique({
       where: { order_number: orderNumber },
-      include: { items: true },
     });
 
     if (!order) {
@@ -374,56 +462,23 @@ export const cancelOrder = async (req, res, next) => {
     }
 
     // Check if order can be cancelled
-    if (!['PENDING', 'PROCESSING'].includes(order.status)) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'CANNOT_CANCEL_ORDER',
-          message: 'El pedido no puede ser cancelado en su estado actual',
-        },
-      });
+    if (!CANCELLABLE_STATUSES.includes(order.status)) {
+      return cannotCancelAdmin(res);
     }
 
-    // Cancel order, restore stock, and record history atomically
-    const updatedOrder = await prisma.$transaction(async (tx) => {
-      // Return stock
-      for (const item of order.items) {
-        if (item.variant_id) {
-          await tx.productVariant.update({
-            where: { id: item.variant_id },
-            data: { stock: { increment: item.quantity } },
-          });
-        } else {
-          await tx.product.update({
-            where: { id: item.product_id },
-            data: { stock: { increment: item.quantity } },
-          });
-        }
-      }
+    // Cancel order, restore stock and points, and record history atomically
+    const updatedOrder = await runTransaction(prisma, (tx) =>
+      cancelOrderInTransaction(tx, order, {
+        reason,
+        historyNotes: `Cancelado por administrador. Razón: ${reason}`,
+        createdBy: req.user.id,
+        extraData: { payment_status: order.payment_status === 'PAID' ? 'REFUNDED' : order.payment_status },
+      })
+    );
 
-      // Update order
-      const updated = await tx.order.update({
-        where: { order_number: orderNumber },
-        data: {
-          status: 'CANCELLED',
-          payment_status: order.payment_status === 'PAID' ? 'REFUNDED' : order.payment_status,
-          cancelled_at: new Date(),
-          cancelled_reason: reason,
-        },
-      });
-
-      // Create status history entry
-      await tx.orderStatusHistory.create({
-        data: {
-          order_id: order.id,
-          status: 'CANCELLED',
-          notes: `Cancelado por administrador. Razón: ${reason}`,
-          created_by: req.user.id,
-        },
-      });
-
-      return updated;
-    });
+    if (!updatedOrder) {
+      return cannotCancelAdmin(res);
+    }
 
     res.json({
       success: true,

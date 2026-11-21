@@ -28,6 +28,17 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Write conflict or deadlock between concurrent transactions: safe to retry
+  if (err.code === 'P2034') {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: 'Conflicto temporal al procesar el pedido; intente de nuevo',
+      },
+    });
+  }
+
   // Validation errors (express-validator)
   if (err.name === 'ValidationError') {
     return res.status(400).json({

@@ -28,8 +28,8 @@ router.patch(
   '/:orderNumber/status',
   [
     body('status')
-      .isIn(['PENDING', 'PROCESSING', 'PAID', 'SHIPPED', 'DELIVERED'])
-      .withMessage('Estado inválido. Para cancelar, use la ruta /cancel'),
+      .isIn(['PENDING', 'PROCESSING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'])
+      .withMessage('Estado inválido'),
     validate,
   ],
   ordersController.updateOrderStatus

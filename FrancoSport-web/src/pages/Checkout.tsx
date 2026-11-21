@@ -7,9 +7,11 @@ import { Loader2, Check, CreditCard, Truck, MapPin, QrCode, Upload, X, Award } f
 import { useCartStore, useAuthStore } from '@/store';
 import { getAddresses, createAddress } from '@/api/users.service';
 import { createOrder } from '@/api/orders.service';
+import { getShippingMethods } from '@/api/shipping.service';
+import { getErrorMessage } from '@/api/axios';
 import { uploadImage } from '@/api/upload.service';
 import { ROUTES } from '@/constants/routes';
-import type { Address } from '@/types';
+import type { Address, AvailableShippingMethod } from '@/types';
 import toast from 'react-hot-toast';
 import { logBeginCheckout, logPurchase } from '@/api/analytics.service';
 import { paymentService } from '@/api/payment.service';
@@ -26,6 +28,18 @@ const Checkout: React.FC = () => {
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
+  // Shipping State
+  const [shippingMethods, setShippingMethods] = useState<AvailableShippingMethod[]>([]);
+  const [selectedShippingMethodId, setSelectedShippingMethodId] = useState<number | null>(null);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+
+  // Same formula the server uses: base cost + cost per kg × total weight (the server is the source of truth)
+  const totalWeight = items.reduce((sum, item) => sum + Number(item.product?.weight || 0) * item.quantity, 0);
+  const selectedShippingMethod = shippingMethods.find((m) => m.id === selectedShippingMethodId) || null;
+  const shippingCost = selectedShippingMethod
+    ? Math.round((Number(selectedShippingMethod.base_cost) + Number(selectedShippingMethod.cost_per_kg) * totalWeight) * 100) / 100
+    : 0;
+
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'QR_TRANSFER'>('CASH_ON_DELIVERY');
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
@@ -35,7 +49,7 @@ const Checkout: React.FC = () => {
   // Loyalty Points
   const [redeemPoints, setRedeemPoints] = useState(0);
   const pointsValue = redeemPoints / 100; // 100 points = Bs. 1
-  const maxRedeemablePoints = user ? Math.min(user.loyalty_points, Math.floor(subtotal * 100)) : 0;
+  const maxRedeemablePoints = user ? Math.min(user.loyalty_points, Math.round((subtotal + shippingCost) * 100)) : 0;
 
   // New Address Form
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -70,8 +84,26 @@ const Checkout: React.FC = () => {
     logBeginCheckout(items, subtotal);
 
     loadAddresses();
+    loadShippingMethods();
     fetchPaymentConfig();
   }, [isAuthenticated, items, navigate, user]);
+
+  const loadShippingMethods = async () => {
+    try {
+      setIsLoadingShipping(true);
+      const data = await getShippingMethods();
+      setShippingMethods(data);
+      // Keep the customer's choice if it is still available, otherwise default to the first
+      setSelectedShippingMethodId((current) =>
+        current !== null && data.some((m) => m.id === current) ? current : data[0]?.id ?? null
+      );
+    } catch (error) {
+      console.error('Error loading shipping methods:', error);
+      toast.error('Error al cargar los métodos de envío');
+    } finally {
+      setIsLoadingShipping(false);
+    }
+  };
 
   const fetchPaymentConfig = async () => {
     try {
@@ -135,6 +167,11 @@ const Checkout: React.FC = () => {
       return;
     }
 
+    if (!selectedShippingMethodId) {
+      toast.error('Selecciona un método de envío');
+      return;
+    }
+
     if (paymentMethod === 'QR_TRANSFER' && !paymentProof) {
       toast.error('Debes subir el comprobante de pago');
       return;
@@ -165,7 +202,7 @@ const Checkout: React.FC = () => {
         })),
         shipping_address_id: selectedAddressId,
         payment_method: paymentMethod === 'QR_TRANSFER' ? 'BANK_TRANSFER' : 'CASH_ON_DELIVERY',
-        shipping_method_id: 1, // Hardcoded for now
+        shipping_method_id: selectedShippingMethodId,
         payment_proof_url: paymentProofUrl || undefined,
         redeem_points: redeemPoints > 0 ? redeemPoints : undefined
       };
@@ -173,14 +210,14 @@ const Checkout: React.FC = () => {
       const newOrder = await createOrder(orderData);
       
       // Track purchase
-      logPurchase(newOrder.id.toString(), items, subtotal - pointsValue);
+      logPurchase(newOrder.id.toString(), items, subtotal + shippingCost - pointsValue);
 
       clearCart();
       toast.success('¡Pedido realizado con éxito!');
       navigate(ROUTES.HOME); // Ideally redirect to order success page
     } catch (error) {
       console.error('Error placing order:', error);
-      toast.error('Error al procesar el pedido');
+      toast.error(getErrorMessage(error) || 'Error al procesar el pedido');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -311,10 +348,55 @@ const Checkout: React.FC = () => {
                         </form>
                       )}
 
+                      <div className="border-t border-border pt-4 mt-4">
+                        <h3 className="font-bold mb-3 flex items-center gap-2">
+                          <Truck className="text-primary w-5 h-5" /> Método de Envío
+                        </h3>
+                        {isLoadingShipping ? (
+                          <div className="flex justify-center py-4">
+                            <Loader2 className="animate-spin text-primary" />
+                          </div>
+                        ) : shippingMethods.length === 0 ? (
+                          <p className="text-sm text-text-secondary">
+                            No hay métodos de envío disponibles por el momento.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {shippingMethods.map((method) => {
+                              const methodCost =
+                                Math.round((Number(method.base_cost) + Number(method.cost_per_kg) * totalWeight) * 100) / 100;
+                              return (
+                                <div
+                                  key={method.id}
+                                  onClick={() => setSelectedShippingMethodId(method.id)}
+                                  className={`p-4 border rounded-lg flex items-center justify-between gap-4 cursor-pointer transition-all ${
+                                    selectedShippingMethodId === method.id
+                                      ? 'border-primary bg-primary/5'
+                                      : 'border-border hover:border-primary/50'
+                                  }`}
+                                >
+                                  <div>
+                                    <p className="font-bold">{method.name}</p>
+                                    {method.description && (
+                                      <p className="text-sm text-text-secondary">{method.description}</p>
+                                    )}
+                                    <p className="text-xs text-text-tertiary mt-1">
+                                      Entrega en {method.estimated_days_min}
+                                      {method.estimated_days_max !== method.estimated_days_min && `-${method.estimated_days_max}`} días
+                                    </p>
+                                  </div>
+                                  <span className="font-bold whitespace-nowrap">{formatCurrency(methodCost)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex justify-end mt-6">
                         <Button 
                           onClick={() => setStep('payment')}
-                          disabled={!selectedAddressId}
+                          disabled={!selectedAddressId || !selectedShippingMethodId}
                         >
                           Continuar al Pago
                         </Button>
@@ -483,6 +565,15 @@ const Checkout: React.FC = () => {
                     </div>
 
                     <div className="bg-surface-light p-4 rounded-lg">
+                      <h3 className="font-bold mb-2 text-sm uppercase tracking-wider text-text-secondary">Método de Envío</h3>
+                      {selectedShippingMethod && (
+                        <p className="text-sm font-medium">
+                          {selectedShippingMethod.name} - {formatCurrency(shippingCost)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="bg-surface-light p-4 rounded-lg">
                       <h3 className="font-bold mb-2 text-sm uppercase tracking-wider text-text-secondary">Método de Pago</h3>
                       <p className="text-sm font-medium">
                         {paymentMethod === 'CASH_ON_DELIVERY' ? 'Pago contra entrega' : 'Transferencia QR'}
@@ -532,7 +623,7 @@ const Checkout: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-text-secondary">
                     <span>Envío</span>
-                    <span>{formatCurrency(0)}</span>
+                    <span>{formatCurrency(shippingCost)}</span>
                   </div>
                   
                   {/* Loyalty Points Redemption */}
@@ -573,7 +664,7 @@ const Checkout: React.FC = () => {
 
                   <div className="border-t border-border pt-2 flex justify-between font-bold text-lg text-primary">
                     <span>Total</span>
-                    <span>{formatCurrency(subtotal - pointsValue)}</span>
+                    <span>{formatCurrency(subtotal + shippingCost - pointsValue)}</span>
                   </div>
                 </div>
                 <div className="text-xs text-text-tertiary text-center">

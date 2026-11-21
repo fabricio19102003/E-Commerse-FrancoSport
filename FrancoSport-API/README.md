@@ -141,9 +141,20 @@ DELETE /api/cart               # Vaciar carrito (requiere auth)
 ### Pedidos
 
 ```http
+POST /api/orders                    # Crear pedido (requiere auth)
 GET  /api/orders                    # Listar pedidos del usuario (requiere auth)
 GET  /api/orders/:orderNumber       # Obtener pedido específico (requiere auth)
 POST /api/orders/:orderNumber/cancel # Cancelar pedido (requiere auth)
+```
+
+Al crear un pedido el cliente envía `items` (`product_id`, `variant_id` opcional, `quantity` entero de 1 a 99),
+`shipping_address_id`, `shipping_method_id`, `payment_method` y, opcionalmente, `redeem_points` (entero ≥ 0).
+Los precios, el costo de envío y el total se calculan siempre en el servidor.
+
+### Métodos de envío
+
+```http
+GET /api/shipping-methods           # Métodos activos en zonas activas (público)
 ```
 
 ### Usuario
@@ -238,7 +249,28 @@ npm start            # Iniciar en modo producción
 npm run db:push      # Sincronizar schema con base de datos
 npm run db:seed      # Poblar base de datos con datos de prueba
 npm run db:studio    # Abrir Prisma Studio
+npm test             # Ejecutar las pruebas (ver sección Pruebas)
 ```
+
+## 🧪 Pruebas
+
+Las pruebas (Vitest + supertest) usan una base de datos MySQL desechable en Docker; nunca la base de desarrollo.
+Cada ejecución reinicia el esquema con `prisma db push --force-reset` (solo en 127.0.0.1/localhost y si el nombre de la base es `test` o lleva `test` separado por `_`, p. ej. `fs_test`).
+
+```bash
+# 1. Levantar MySQL de pruebas (una vez)
+docker run -d --name fs-test-mysql -e MYSQL_ROOT_PASSWORD=test -e MYSQL_DATABASE=fs_test \
+  -p 127.0.0.1:33306:3306 mysql:8.4
+
+# 2. Ejecutar las pruebas (espera unos segundos a que MySQL termine de iniciar la primera vez)
+npm test
+
+# 3. Al terminar, eliminar el contenedor
+docker rm -f fs-test-mysql
+```
+
+La URL de pruebas (`mysql://root:test@127.0.0.1:33306/fs_test`) y los secretos JWT de prueba están en
+`tests/test-env.js`; se puede cambiar la base con `TEST_DATABASE_URL`.
 
 ## 🐛 Debugging
 
