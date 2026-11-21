@@ -341,6 +341,32 @@ async function main() {
 
   console.log('✅ Cupones creados');
 
+  // ===== PAYMENT CONFIG =====
+  console.log('\n💳 Configurando pago por transferencia/QR...');
+
+  // EXAMPLE DATA ONLY: replace the QR image and the bank details from the admin panel
+  // (Pagos) before taking real payments. One config serves QR_TRANSFER and BANK_TRANSFER.
+  // Upsert with `update: {}` so re-running the seed never overwrites what the admin saved.
+  await prisma.paymentConfig.upsert({
+    where: { method_name: 'BANK_TRANSFER' },
+    update: {},
+    create: {
+      method_name: 'BANK_TRANSFER',
+      qr_code_url: 'https://placehold.co/400x400/png?text=QR+DE+EJEMPLO',
+      instructions: [
+        '[DATOS DE EJEMPLO - reemplazar antes de vender]',
+        'Pague con QR o transferencia bancaria y suba el comprobante en su pedido.',
+        'Banco: Banco de Ejemplo S.A.',
+        'Cuenta: 000-000000-0-00 (cuenta de ejemplo)',
+        'Titular: Franco Sport (ejemplo)',
+        'Referencia: su número de pedido',
+      ].join('\n'),
+      is_active: true,
+    },
+  });
+
+  console.log('✅ Configuración de pago creada (datos de ejemplo)');
+
   console.log('\nSeed completado exitosamente!\n');
   console.log('Credenciales de prueba:');
   console.log('   Admin: admin@francosport.com / <SEED_ADMIN_PASSWORD>');

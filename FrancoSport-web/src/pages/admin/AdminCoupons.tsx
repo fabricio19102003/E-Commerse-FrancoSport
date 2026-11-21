@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { adminCouponsService } from '@/api/admin';
 import type { Coupon, CouponFormData } from '@/api/admin/coupons.service';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -18,7 +19,7 @@ import {
   Ticket,
   Save,
   X,
-  DollarSign,
+  Banknote,
   Percent
 } from 'lucide-react';
 
@@ -245,7 +246,7 @@ const AdminCoupons: React.FC = () => {
                         <div>
                           <p className="font-medium text-white font-mono">{coupon.code}</p>
                           {coupon.min_purchase_amount && (
-                            <p className="text-xs text-neutral-500">Min: ${coupon.min_purchase_amount}</p>
+                            <p className="text-xs text-neutral-500">Min: {formatCurrency(coupon.min_purchase_amount)}</p>
                           )}
                         </div>
                       </div>
@@ -255,11 +256,10 @@ const AdminCoupons: React.FC = () => {
                         {coupon.discount_type === 'PERCENTAGE' ? (
                           <Percent className="w-4 h-4 text-primary" />
                         ) : (
-                          <DollarSign className="w-4 h-4 text-green-500" />
+                          <Banknote className="w-4 h-4 text-green-500" />
                         )}
                         <span className="text-white font-medium">
-                          {coupon.discount_value}
-                          {coupon.discount_type === 'PERCENTAGE' ? '%' : ' USD'}
+                          {coupon.discount_type === 'PERCENTAGE' ? `${coupon.discount_value}%` : formatCurrency(coupon.discount_value)}
                         </span>
                       </div>
                     </td>
@@ -364,7 +364,7 @@ const AdminCoupons: React.FC = () => {
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   >
                     <option value="PERCENTAGE">Porcentaje (%)</option>
-                    <option value="FIXED">Monto Fijo ($)</option>
+                    <option value="FIXED">Monto Fijo (Bs.)</option>
                   </select>
                 </div>
 
@@ -384,7 +384,7 @@ const AdminCoupons: React.FC = () => {
                       required
                     />
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
-                      {formData.discount_type === 'PERCENTAGE' ? <Percent className="w-4 h-4" /> : <DollarSign className="w-4 h-4" />}
+                      {formData.discount_type === 'PERCENTAGE' ? <Percent className="w-4 h-4" /> : <Banknote className="w-4 h-4" />}
                     </div>
                   </div>
                 </div>
@@ -419,7 +419,7 @@ const AdminCoupons: React.FC = () => {
                 {/* Limits */}
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-1">
-                    Compra Mínima ($)
+                    Compra Mínima (Bs.)
                   </label>
                   <input
                     type="number"
@@ -448,7 +448,7 @@ const AdminCoupons: React.FC = () => {
                 {formData.discount_type === 'PERCENTAGE' && (
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-neutral-400 mb-1">
-                      Descuento Máximo ($)
+                      Descuento Máximo (Bs.)
                     </label>
                     <input
                       type="number"

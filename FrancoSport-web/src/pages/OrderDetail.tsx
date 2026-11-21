@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/constants/labels';
 import { formatCurrency } from '@/utils/currency';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
@@ -135,7 +136,7 @@ const OrderDetail: React.FC = () => {
                   order.status === 'CANCELLED' ? 'danger' :
                   'warning'
                 }>
-                  {order.status}
+                  {orderStatusLabel(order.status)}
                 </Badge>
               </h1>
               <p className="text-text-secondary mt-1 flex items-center gap-2">
@@ -277,11 +278,11 @@ const OrderDetail: React.FC = () => {
               <div className="text-sm">
                 <p className="font-bold mb-1">Método de Pago</p>
                 <p className="text-text-secondary mb-3">
-                  {order.payment_method === 'CASH_ON_DELIVERY' ? 'Pago contra entrega' : order.payment_method === 'BANK_TRANSFER' ? 'Transferencia Bancaria' : order.payment_method}
+                  {paymentMethodLabel(order.payment_method)}
                 </p>
                 <p className="font-bold mb-1">Estado del Pago</p>
                 <Badge variant={order.payment_status === 'PAID' ? 'success' : 'warning'} size="sm">
-                  {order.payment_status}
+                  {paymentStatusLabel(order.payment_status)}
                 </Badge>
                 
                 {order.payment_proof_url && (

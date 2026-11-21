@@ -6,6 +6,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
+import { orderStatusLabel } from '@/constants/labels';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { getDashboardStats, getRecentOrders, getTopProducts } from '@/api/admin/dashboard.service';
@@ -14,7 +16,7 @@ import {
   ShoppingCart,
   Users,
   Package,
-  DollarSign,
+  Banknote,
   AlertTriangle,
   ArrowUpRight,
   ArrowDownRight,
@@ -71,23 +73,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return 'Pendiente';
-      case 'PROCESSING':
-        return 'Procesando';
-      case 'SHIPPED':
-        return 'Enviado';
-      case 'DELIVERED':
-        return 'Entregado';
-      case 'CANCELLED':
-        return 'Cancelado';
-      default:
-        return status;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', {
@@ -135,7 +120,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-[#1A1A1A] border border-neutral-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-green-500" />
+              <Banknote className="w-6 h-6 text-green-500" />
             </div>
             <div
               className={`flex items-center space-x-1 text-sm font-medium ${
@@ -151,7 +136,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
           <h3 className="text-2xl font-black text-white mb-1">
-            ${stats.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {formatCurrency(stats.totalSales)}
           </h3>
           <p className="text-sm text-neutral-400">Ventas Totales</p>
         </div>
@@ -307,7 +292,7 @@ const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-4">
                       <span className="text-sm font-medium text-white">
-                        ${order.total.toFixed(2)}
+                        {formatCurrency(order.total)}
                       </span>
                     </td>
                     <td className="py-4">
@@ -316,7 +301,7 @@ const AdminDashboard: React.FC = () => {
                           order.status
                         )}`}
                       >
-                        {getStatusLabel(order.status)}
+                        {orderStatusLabel(order.status)}
                       </span>
                     </td>
                     <td className="py-4">
@@ -380,7 +365,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-white">
-                    ${product.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {formatCurrency(product.revenue)}
                   </p>
                   <p className="text-xs text-green-500">Ingresos</p>
                 </div>

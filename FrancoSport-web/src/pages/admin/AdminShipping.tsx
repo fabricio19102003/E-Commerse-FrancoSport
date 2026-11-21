@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { adminShippingService } from '@/api/admin';
 import type { ShippingMethod, ShippingMethodFormData } from '@/api/admin/shipping.service';
 import {
@@ -17,7 +18,7 @@ import {
   Truck,
   Save,
   X,
-  DollarSign,
+  Banknote,
   Clock
 } from 'lucide-react';
 
@@ -230,8 +231,8 @@ const AdminShipping: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-1 text-white font-medium">
-                        <DollarSign className="w-4 h-4 text-green-500" />
-                        <span>{method.base_cost}</span>
+                        <Banknote className="w-4 h-4 text-green-500" />
+                        <span>{formatCurrency(method.base_cost)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -318,7 +319,7 @@ const AdminShipping: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-1">
-                    Costo Base ($)
+                    Costo Base (Bs.)
                   </label>
                   <input
                     type="number"
@@ -332,7 +333,7 @@ const AdminShipping: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-1">
-                    Costo por Kg ($)
+                    Costo por Kg (Bs.)
                   </label>
                   <input
                     type="number"

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { formatCurrency } from '@/utils/currency';
+import { orderStatusLabel } from '@/constants/labels';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
@@ -275,13 +276,7 @@ const Profile: React.FC = () => {
                               order.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                               'bg-yellow-100 text-yellow-700'
                             }`}>
-                              {order.status === 'PENDING' && 'Pendiente'}
-                              {order.status === 'PROCESSING' && 'Procesando'}
-                              {order.status === 'PAID' && 'Pagado'}
-                              {order.status === 'SHIPPED' && 'Enviado'}
-                              {order.status === 'DELIVERED' && 'Entregado'}
-                              {order.status === 'CANCELLED' && 'Cancelado'}
-                              {order.status === 'REFUNDED' && 'Reembolsado'}
+                              {orderStatusLabel(order.status)}
                             </span>
                             <span className="font-bold text-lg text-primary">
                               {formatCurrency(Number(order.total_amount))}

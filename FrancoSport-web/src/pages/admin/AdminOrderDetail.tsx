@@ -6,6 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { formatCurrency } from '@/utils/currency';
+import { ORDER_STATUS_LABELS, paymentMethodLabel, paymentStatusLabel } from '@/constants/labels';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ROUTES } from '@/constants/routes';
@@ -26,6 +28,13 @@ import {
   Clock,
   AlertTriangle,
 } from 'lucide-react';
+
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+  PAID: 'bg-green-500/10 text-green-500',
+  PENDING: 'bg-yellow-500/10 text-yellow-500',
+  FAILED: 'bg-red-500/10 text-red-500',
+  REFUNDED: 'bg-blue-500/10 text-blue-500',
+};
 
 const AdminOrderDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -103,17 +112,17 @@ const AdminOrderDetail: React.FC = () => {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return { label: 'Pendiente', color: 'bg-yellow-500/10 text-yellow-500', icon: Clock };
+        return { label: ORDER_STATUS_LABELS.PENDING, color: 'bg-yellow-500/10 text-yellow-500', icon: Clock };
       case 'PROCESSING':
-        return { label: 'Procesando', color: 'bg-blue-500/10 text-blue-500', icon: Package };
+        return { label: ORDER_STATUS_LABELS.PROCESSING, color: 'bg-blue-500/10 text-blue-500', icon: Package };
       case 'PAID':
-        return { label: 'Pagado', color: 'bg-green-500/10 text-green-500', icon: CheckCircle };
+        return { label: ORDER_STATUS_LABELS.PAID, color: 'bg-green-500/10 text-green-500', icon: CheckCircle };
       case 'SHIPPED':
-        return { label: 'Enviado', color: 'bg-purple-500/10 text-purple-500', icon: Truck };
+        return { label: ORDER_STATUS_LABELS.SHIPPED, color: 'bg-purple-500/10 text-purple-500', icon: Truck };
       case 'DELIVERED':
-        return { label: 'Entregado', color: 'bg-green-500/10 text-green-500', icon: CheckCircle };
+        return { label: ORDER_STATUS_LABELS.DELIVERED, color: 'bg-green-500/10 text-green-500', icon: CheckCircle };
       case 'CANCELLED':
-        return { label: 'Cancelado', color: 'bg-red-500/10 text-red-500', icon: X };
+        return { label: ORDER_STATUS_LABELS.CANCELLED, color: 'bg-red-500/10 text-red-500', icon: X };
       default:
         return { label: status, color: 'bg-neutral-500/10 text-neutral-500', icon: AlertTriangle };
     }
@@ -216,10 +225,10 @@ const AdminOrderDetail: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-white">
-                      ${parseFloat(item.price_at_purchase || item.price || 0).toFixed(2)}
+                      {formatCurrency(item.price_at_purchase || item.price)}
                     </p>
                     <p className="text-sm text-neutral-500">
-                      ${(parseFloat(item.subtotal || 0)).toFixed(2)}
+                      {formatCurrency(item.subtotal)}
                     </p>
                   </div>
                 </div>
@@ -230,25 +239,25 @@ const AdminOrderDetail: React.FC = () => {
             <div className="mt-6 pt-6 border-t border-neutral-800 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-400">Subtotal</span>
-                <span className="text-white">${parseFloat(order.subtotal || 0).toFixed(2)}</span>
+                <span className="text-white">{formatCurrency(order.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-400">Envío</span>
-                <span className="text-white">${parseFloat(order.shipping_cost || order.shippingCost || 0).toFixed(2)}</span>
+                <span className="text-white">{formatCurrency(order.shipping_cost || order.shippingCost)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-400">Impuestos</span>
-                <span className="text-white">${parseFloat(order.tax_amount || order.taxAmount || 0).toFixed(2)}</span>
+                <span className="text-white">{formatCurrency(order.tax_amount || order.taxAmount)}</span>
               </div>
               {(order.discount_amount || order.discountAmount) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Descuento</span>
-                  <span className="text-green-500">-${parseFloat(order.discount_amount || order.discountAmount || 0).toFixed(2)}</span>
+                  <span className="text-green-500">-{formatCurrency(order.discount_amount || order.discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-neutral-800">
                 <span className="text-white">Total</span>
-                <span className="text-primary">${parseFloat(order.total_amount || order.totalAmount || 0).toFixed(2)}</span>
+                <span className="text-primary">{formatCurrency(order.total_amount || order.totalAmount)}</span>
               </div>
             </div>
           </div>
@@ -354,7 +363,7 @@ const AdminOrderDetail: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Costo</span>
-                  <span className="text-white">${parseFloat(order.shipping_cost || 0).toFixed(2)}</span>
+                  <span className="text-white">{formatCurrency(order.shipping_cost)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Estimado</span>
@@ -376,13 +385,13 @@ const AdminOrderDetail: React.FC = () => {
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-neutral-400">Estado del Pago</p>
-                <span className="inline-block mt-1 px-3 py-1 bg-green-500/10 text-green-500 text-xs font-medium rounded-full">
-                  {order.payment_status}
+                <span className={`inline-block mt-1 px-3 py-1 text-xs font-medium rounded-full ${PAYMENT_STATUS_COLORS[order.payment_status] || 'bg-neutral-500/10 text-neutral-500'}`}>
+                  {paymentStatusLabel(order.payment_status)}
                 </span>
               </div>
               <div>
                 <p className="text-sm text-neutral-400">Método</p>
-                <p className="text-sm font-medium text-white">{order.payment_method || 'No especificado'}</p>
+                <p className="text-sm font-medium text-white">{order.payment_method ? paymentMethodLabel(order.payment_method) : 'No especificado'}</p>
               </div>
               {order.payment_id && (
                 <div>
@@ -453,11 +462,10 @@ const AdminOrderDetail: React.FC = () => {
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   >
                     <option value="">Selecciona un estado</option>
-                    {order.status === 'CANCELLED' && <option value="PENDING">Pendiente (reabrir)</option>}
-                    <option value="PROCESSING">Procesando</option>
-                    <option value="SHIPPED">Enviado</option>
-                    <option value="DELIVERED">Entregado</option>
-                    <option value="CANCELLED">Cancelado</option>
+                    {order.status === 'CANCELLED' && <option value="PENDING">{ORDER_STATUS_LABELS.PENDING} (reabrir)</option>}
+                    {['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((status) => (
+                      <option key={status} value={status}>{ORDER_STATUS_LABELS[status]}</option>
+                    ))}
                   </select>
                 </div>
 

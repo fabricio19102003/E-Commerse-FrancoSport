@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { formatCurrency } from '@/utils/currency';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { adminProductsService } from '@/api/admin';
@@ -318,10 +319,10 @@ const AdminProducts: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium text-white">${parseFloat(product.price.toString()).toFixed(2)}</p>
+                        <p className="font-medium text-white">{formatCurrency(product.price)}</p>
                         {product.compare_at_price && parseFloat(product.compare_at_price.toString()) > parseFloat(product.price.toString()) && (
                           <p className="text-sm text-neutral-500 line-through">
-                            ${parseFloat(product.compare_at_price.toString()).toFixed(2)}
+                            {formatCurrency(product.compare_at_price)}
                           </p>
                         )}
                       </div>

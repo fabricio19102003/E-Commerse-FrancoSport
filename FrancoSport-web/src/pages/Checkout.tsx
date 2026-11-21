@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { formatCurrency } from '@/utils/currency';
+import { paymentMethodLabel } from '@/constants/labels';
 import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
@@ -16,8 +17,12 @@ import { logBeginCheckout, logPurchase } from '@/api/analytics.service';
 import { paymentService } from '@/api/payment.service';
 import type { PaymentConfig } from '@/api/payment.service';
 
+// The delivery time is shown from the method's day range; hide a description that repeats it ("Entrega en 3-5 días hábiles")
+const restatesDeliveryDays = (description: string) => /\d\s*(-\s*\d+\s*)?d[ií]as/i.test(description);
+
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
+  const orderPlacedRef = useRef(false);
   const { items, subtotal, clearCart } = useCartStore();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -70,7 +75,8 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    if (items.length === 0) {
+    // After a placed order the cart is emptied on purpose: do not bounce to the cart
+    if (items.length === 0 && !orderPlacedRef.current) {
       navigate(ROUTES.CART);
       return;
     }
@@ -207,6 +213,7 @@ const Checkout: React.FC = () => {
       // Track purchase
       logPurchase(newOrder.id.toString(), items, subtotal + shippingCost - pointsValue);
 
+      orderPlacedRef.current = true;
       clearCart();
       if (proofUploadFailed) {
         // The order exists: send the customer to its detail page, where the proof can be uploaded again
@@ -218,7 +225,7 @@ const Checkout: React.FC = () => {
         return;
       }
       toast.success('¡Pedido realizado con éxito!');
-      navigate(ROUTES.HOME); // Ideally redirect to order success page
+      navigate(generateRoute.orderDetail(newOrder.order_number));
     } catch (error) {
       console.error('Error placing order:', error);
       toast.error(getErrorMessage(error) || 'Error al procesar el pedido');
@@ -381,7 +388,7 @@ const Checkout: React.FC = () => {
                                 >
                                   <div>
                                     <p className="font-bold">{method.name}</p>
-                                    {method.description && (
+                                    {method.description && !restatesDeliveryDays(method.description) && (
                                       <p className="text-sm text-text-secondary">{method.description}</p>
                                     )}
                                     <p className="text-xs text-text-tertiary mt-1">
@@ -580,7 +587,7 @@ const Checkout: React.FC = () => {
                     <div className="bg-surface-light p-4 rounded-lg">
                       <h3 className="font-bold mb-2 text-sm uppercase tracking-wider text-text-secondary">Método de Pago</h3>
                       <p className="text-sm font-medium">
-                        {paymentMethod === 'CASH_ON_DELIVERY' ? 'Pago contra entrega' : 'Transferencia QR'}
+                        {paymentMethodLabel(paymentMethod)}
                       </p>
                       {paymentMethod === 'QR_TRANSFER' && paymentProof && (
                         <div className="mt-2 text-xs text-green-500 flex items-center gap-1">
