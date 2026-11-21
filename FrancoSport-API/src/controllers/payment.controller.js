@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { runTransaction } from '../services/order.service.js';
 import { uploadImageBuffer, deleteStoredImage } from '../services/storage.service.js';
 import { PROJECT_FOLDER } from '../config/cloudinary.js';
+import { projectPublicIdFromUrl } from '../utils/imageIds.js';
 
 const PROOF_FOLDER = `${PROJECT_FOLDER}/payment-proofs`;
 const PROOF_PAYMENT_METHODS = ['QR_TRANSFER', 'BANK_TRANSFER'];
@@ -99,6 +100,14 @@ export const uploadPaymentProof = async (req, res, next) => {
 
       return tx.order.findUnique({ where: { id: order.id } });
     });
+
+    if (updatedOrder && order.payment_proof_url) {
+      // The previous proof is replaced: remove its image (best effort, project folder only)
+      const previousId = projectPublicIdFromUrl(order.payment_proof_url);
+      if (previousId) {
+        deleteStoredImage(previousId).catch((err) => console.error('Failed to delete replaced proof:', err));
+      }
+    }
 
     if (!updatedOrder) {
       // The order changed while the image was uploading: do not keep an orphan image

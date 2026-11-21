@@ -32,6 +32,21 @@ const cannotCancelAdmin = (res) =>
     },
   });
 
+const orderChanged = (res) =>
+  res.status(409).json({
+    success: false,
+    error: {
+      code: 'ORDER_CHANGED',
+      message: 'El pedido cambió mientras tanto; recargue e intente de nuevo',
+    },
+  });
+
+// A lost cancel claim: still cancellable means its payment changed meanwhile (409); otherwise it was already cancelled/moved on
+const cancelLost = async (res, orderId) => {
+  const current = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  return current && CANCELLABLE_STATUSES.includes(current.status) ? orderChanged(res) : cannotCancelAdmin(res);
+};
+
 /**
  * Get all orders (admin view)
  * GET /api/admin/orders
@@ -254,7 +269,7 @@ export const updateOrderStatus = async (req, res, next) => {
         })
       );
       if (!cancelled) {
-        return cannotCancelAdmin(res);
+        return cancelLost(res, order.id);
       }
       return res.json({
         success: true,
@@ -477,7 +492,7 @@ export const cancelOrder = async (req, res, next) => {
     );
 
     if (!updatedOrder) {
-      return cannotCancelAdmin(res);
+      return cancelLost(res, order.id);
     }
 
     res.json({

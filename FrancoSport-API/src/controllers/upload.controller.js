@@ -7,14 +7,10 @@
 
 import { uploadImageBuffer, deleteStoredImage } from '../services/storage.service.js';
 import { PROJECT_FOLDER } from '../config/cloudinary.js';
+import { isProjectPublicId } from '../utils/imageIds.js';
 
 const UPLOAD_FOLDER = `${PROJECT_FOLDER}/products`;
 
-// Only this project's folder, no empty or relative segments
-const isProjectPublicId = (publicId) =>
-  /^[\w\-. ]+(\/[\w\-. ]+)+$/.test(publicId) &&
-  publicId.startsWith(`${PROJECT_FOLDER}/`) &&
-  publicId.split('/').every((segment) => segment !== '.' && segment !== '..');
 
 /**
  * Upload single image to Cloudinary

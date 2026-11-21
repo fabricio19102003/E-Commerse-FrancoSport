@@ -277,7 +277,8 @@ Las pruebas nunca llaman a Cloudinary: se simula solo el adaptador `src/services
 
 - `POST /api/upload/image(s)` y `DELETE /api/upload/image/<public id>`: solo administradores. Solo JPG/PNG/WEBP, máx. 5 MB, se valida el contenido real; borrar solo funciona dentro de la carpeta `franco-sport/`.
 - Clientes: `POST /api/payment/proof/:orderId` (campo `image`), solo el dueño del pedido, pedidos `QR_TRANSFER`/`BANK_TRANSFER` no cancelados con pago pendiente (o rechazado). Máx. 10 subidas por usuario cada 15 minutos. El pedido se crea primero (`payment_proof_url` ya no se acepta al crearlo) y el comprobante se sube después.
-- `POST /api/admin/payment/approve/:orderId`: solo pedidos con pago pendiente y comprobante, sin cancelar ni reembolsar; una aprobación repetida o simultánea responde 409.
+- `POST /api/admin/payment/approve/:orderId`: solo pedidos con pago pendiente y comprobante, sin cancelar ni reembolsar; una aprobación repetida o simultánea responde 409. Opcionalmente recibe `payment_proof_url` (el comprobante que vio el admin); si ya cambió responde 409. Si un cliente intenta cancelar un pedido con pago aprobado responde 400 (debe contactar a la tienda).
+- Al reemplazar un comprobante se borra la imagen anterior de Cloudinary (si está en la carpeta `franco-sport/`).
 
 ## 🐛 Debugging
 

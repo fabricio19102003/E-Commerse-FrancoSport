@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { ROUTES } from '@/constants/routes';
 import * as ordersService from '@/api/admin/orders.service';
 import { adminPaymentService } from '@/api/admin/payment.service';
+import { getErrorMessage } from '@/api/axios';
 import {
   ArrowLeft,
   Package,
@@ -89,12 +90,13 @@ const AdminOrderDetail: React.FC = () => {
   const handleApprovePayment = async () => {
     try {
       if (!order.id) return;
-      await adminPaymentService.approvePayment(order.id);
+      await adminPaymentService.approvePayment(order.id, order.payment_proof_url);
       toast.success('Pago aprobado exitosamente');
       fetchOrder();
     } catch (err) {
       console.error('Error approving payment:', err);
-      toast.error('Error al aprobar el pago');
+      toast.error(getErrorMessage(err) || 'Error al aprobar el pago');
+      fetchOrder(); // show the current proof if it changed
     }
   };
 

@@ -38,6 +38,7 @@ export const updatePaymentConfig = async (req, res, next) => {
 const sendError = (res, status, code, message) =>
   res.status(status).json({ success: false, error: { code, message } });
 
+const PROOF_CHANGED = 'El comprobante cambió mientras tanto; revíselo de nuevo';
 const APPROVABLE_STATUSES = ['PENDING', 'PROCESSING'];
 
 /**
@@ -52,6 +53,11 @@ const APPROVABLE_STATUSES = ['PENDING', 'PROCESSING'];
 export const approvePayment = async (req, res, next) => {
   try {
     const orderId = Number(req.params.orderId);
+    // The proof the admin reviewed (optional): approval only applies to that exact proof
+    const seenProof = req.body?.payment_proof_url;
+    if (seenProof !== undefined && typeof seenProof !== 'string') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Comprobante inválido');
+    }
     const order = Number.isInteger(orderId) ? await prisma.order.findUnique({ where: { id: orderId } }) : null;
 
     if (!order) {
@@ -80,6 +86,9 @@ export const approvePayment = async (req, res, next) => {
     if (!APPROVABLE_STATUSES.includes(order.status)) {
       return sendError(res, 400, 'ORDER_STATUS_INVALID', 'El pedido no está en un estado que permita aprobar el pago');
     }
+    if (seenProof !== undefined && seenProof !== order.payment_proof_url) {
+      return sendError(res, 409, 'PROOF_CHANGED', PROOF_CHANGED);
+    }
 
     const approved = await runTransaction(prisma, async (tx) => {
       const claimed = await tx.order.updateMany({
@@ -87,7 +96,8 @@ export const approvePayment = async (req, res, next) => {
           id: order.id,
           status: { in: APPROVABLE_STATUSES },
           payment_status: 'PENDING',
-          payment_proof_url: { not: null },
+          // the proof that was read (and shown to the admin), not whatever is stored by now
+          payment_proof_url: order.payment_proof_url,
         },
         data: { payment_status: 'PAID', status: 'PROCESSING' },
       });
@@ -106,6 +116,10 @@ export const approvePayment = async (req, res, next) => {
     });
 
     if (!approved) {
+      const current = await prisma.order.findUnique({ where: { id: order.id }, select: { payment_proof_url: true } });
+      if (current && current.payment_proof_url !== order.payment_proof_url) {
+        return sendError(res, 409, 'PROOF_CHANGED', PROOF_CHANGED);
+      }
       return sendError(res, 409, 'ORDER_CHANGED', 'El pedido cambió mientras tanto; recargue e intente de nuevo');
     }
 

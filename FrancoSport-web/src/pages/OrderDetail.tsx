@@ -8,6 +8,7 @@ import { getOrder } from '@/api/orders.service';
 import { ROUTES, generateRoute } from '@/constants/routes';
 import type { Order } from '@/types';
 import { paymentService } from '@/api/payment.service';
+import { useAuthStore } from '@/store';
 import { getErrorMessage } from '@/api/axios';
 import toast from 'react-hot-toast';
 
@@ -17,6 +18,7 @@ const PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -84,6 +86,8 @@ const OrderDetail: React.FC = () => {
 
   // Same rule as the API: transfer orders that are not cancelled and whose payment is pending (or rejected)
   const canUploadProof =
+    // only the order's customer uploads proofs (an admin viewing the order does not)
+    user?.id === order.user_id &&
     ['BANK_TRANSFER', 'QR_TRANSFER'].includes(order.payment_method) &&
     ['PENDING', 'PROCESSING'].includes(order.status) &&
     ['PENDING', 'FAILED'].includes(order.payment_status);
@@ -114,10 +118,15 @@ const OrderDetail: React.FC = () => {
               </p>
             </div>
             
-            {order.status === 'PENDING' && (
+            {order.status === 'PENDING' && order.payment_status !== 'PAID' && (
               <Button variant="danger" size="sm">
                 Cancelar Pedido
               </Button>
+            )}
+            {order.payment_status === 'PAID' && ['PENDING', 'PROCESSING'].includes(order.status) && (
+              <p className="text-sm text-text-secondary max-w-xs">
+                Su pago ya fue aprobado: para cancelar el pedido comuníquese con la tienda
+              </p>
             )}
           </div>
         </div>

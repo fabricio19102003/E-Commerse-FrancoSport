@@ -12,6 +12,7 @@ import multer from 'multer';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const TOO_MUCH_DATA = ['LIMIT_PART_COUNT', 'LIMIT_FIELD_KEY', 'LIMIT_FIELD_VALUE', 'LIMIT_FIELD_COUNT'];
 const ONLY_IMAGES = 'Solo se permiten imágenes JPG, PNG y WEBP.';
 
 /**
@@ -32,7 +33,8 @@ const badRequest = (res, code, message) =>
 
 const multerInstance = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_BYTES, files: 5 },
+  // Images only: a few small text fields at most, so a crafted multipart body cannot pile up memory
+  limits: { fileSize: MAX_IMAGE_BYTES, files: 5, fields: 5, parts: 10, fieldSize: 10 * 1024, fieldNameSize: 100, headerPairs: 50 },
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) return cb(null, true);
     const error = new Error(`Tipo de archivo no permitido. ${ONLY_IMAGES}`);
@@ -52,6 +54,9 @@ const wrap = (handler) => (req, res, next) =>
     }
     if (error.code === 'LIMIT_FILE_SIZE') return badRequest(res, 'FILE_TOO_LARGE', 'La imagen no puede superar los 5 MB');
     if (error.code === 'INVALID_FILE_TYPE') return badRequest(res, 'INVALID_FILE_TYPE', error.message);
+    if (TOO_MUCH_DATA.includes(error.code)) {
+      return badRequest(res, 'INVALID_UPLOAD', 'La solicitud contiene demasiados datos');
+    }
     if (error instanceof multer.MulterError) {
       return badRequest(res, 'INVALID_UPLOAD', 'Archivo no esperado en la solicitud');
     }
