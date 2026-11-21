@@ -74,7 +74,6 @@ Write-Host "✓ Zustand 5.0.2" -ForegroundColor Green
 Write-Host "✓ Axios 1.7.9" -ForegroundColor Green
 Write-Host "✓ React Hook Form 7.54.2" -ForegroundColor Green
 Write-Host "✓ Zod 3.24.1" -ForegroundColor Green
-Write-Host "✓ Stripe React & JS" -ForegroundColor Green
 Write-Host "✓ Tailwind CSS 3.4.17" -ForegroundColor Green
 Write-Host "✓ TypeScript 5.9.3" -ForegroundColor Green
 Write-Host "✓ Vite 7.2.4" -ForegroundColor Green

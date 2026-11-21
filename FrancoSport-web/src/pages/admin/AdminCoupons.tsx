@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import { formatCurrency } from '@/utils/currency';
 import { adminCouponsService } from '@/api/admin';
-import type { Coupon, CouponFormData } from '@/api/admin/coupons.service';
+import type { Coupon, CouponFormData, CouponDiscountType } from '@/api/admin/coupons.service';
 import { getApiErrorMessage } from '@/utils/apiError';
 import {
   Plus,
@@ -25,6 +25,56 @@ import {
 
 import { useConfirm } from '@/hooks/useConfirm';
 
+/** What the form holds: amounts as text (an empty box means no limit) and dates as YYYY-MM-DD */
+interface CouponFormState {
+  code: string;
+  description: string;
+  discount_type: CouponDiscountType;
+  discount_value: string;
+  minimum_purchase_amount: string;
+  maximum_discount_amount: string;
+  usage_limit_total: string;
+  usage_limit_per_user: string;
+  starts_at: string;
+  expires_at: string;
+  is_active: boolean;
+}
+
+// Local calendar day of a date (toISOString would give the UTC day)
+const toDateInput = (value: Date) =>
+  `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+
+const emptyForm = (): CouponFormState => ({
+  code: '',
+  description: '',
+  discount_type: 'PERCENTAGE',
+  discount_value: '',
+  minimum_purchase_amount: '',
+  maximum_discount_amount: '',
+  usage_limit_total: '',
+  usage_limit_per_user: '',
+  starts_at: toDateInput(new Date()),
+  expires_at: toDateInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+  is_active: true
+});
+
+const optionalNumber = (value: string) => (value.trim() === '' ? null : Number(value));
+
+// The coupon is valid from the start of its first day to the end of its last day (local time)
+const toPayload = (form: CouponFormState): CouponFormData => ({
+  code: form.code.trim(),
+  description: form.description.trim(),
+  discount_type: form.discount_type,
+  discount_value: Number(form.discount_value),
+  minimum_purchase_amount: optionalNumber(form.minimum_purchase_amount),
+  maximum_discount_amount: form.discount_type === 'PERCENTAGE' ? optionalNumber(form.maximum_discount_amount) : null,
+  usage_limit_total: optionalNumber(form.usage_limit_total),
+  usage_limit_per_user: optionalNumber(form.usage_limit_per_user),
+  starts_at: new Date(`${form.starts_at}T00:00:00`).toISOString(),
+  expires_at: new Date(`${form.expires_at}T23:59:59.999`).toISOString(),
+  is_active: form.is_active
+});
+
 const AdminCoupons: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,17 +85,7 @@ const AdminCoupons: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
-  const [formData, setFormData] = useState<CouponFormData>({
-    code: '',
-    discount_type: 'PERCENTAGE',
-    discount_value: 0,
-    min_purchase_amount: 0,
-    max_discount_amount: 0,
-    start_date: new Date().toISOString().split('T')[0],
-    end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    usage_limit: 0,
-    is_active: true
-  });
+  const [formData, setFormData] = useState<CouponFormState>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch coupons
@@ -73,28 +113,20 @@ const AdminCoupons: React.FC = () => {
       setEditingCoupon(coupon);
       setFormData({
         code: coupon.code,
+        description: coupon.description,
         discount_type: coupon.discount_type,
-        discount_value: coupon.discount_value,
-        min_purchase_amount: coupon.min_purchase_amount || 0,
-        max_discount_amount: coupon.max_discount_amount || 0,
-        start_date: new Date(coupon.start_date).toISOString().split('T')[0],
-        end_date: new Date(coupon.end_date).toISOString().split('T')[0],
-        usage_limit: coupon.usage_limit || 0,
+        discount_value: String(Number(coupon.discount_value)),
+        minimum_purchase_amount: coupon.minimum_purchase_amount === null ? '' : String(Number(coupon.minimum_purchase_amount)),
+        maximum_discount_amount: coupon.maximum_discount_amount === null ? '' : String(Number(coupon.maximum_discount_amount)),
+        usage_limit_total: coupon.usage_limit_total === null ? '' : String(coupon.usage_limit_total),
+        usage_limit_per_user: coupon.usage_limit_per_user === null ? '' : String(coupon.usage_limit_per_user),
+        starts_at: toDateInput(new Date(coupon.starts_at)),
+        expires_at: toDateInput(new Date(coupon.expires_at)),
         is_active: coupon.is_active
       });
     } else {
       setEditingCoupon(null);
-      setFormData({
-        code: '',
-        discount_type: 'PERCENTAGE',
-        discount_value: 0,
-        min_purchase_amount: 0,
-        max_discount_amount: 0,
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        usage_limit: 0,
-        is_active: true
-      });
+      setFormData(emptyForm());
     }
     setIsModalOpen(true);
   };
@@ -111,12 +143,7 @@ const AdminCoupons: React.FC = () => {
       setIsSaving(true);
       setError(null);
 
-      const dataToSend = {
-        ...formData,
-        min_purchase_amount: formData.min_purchase_amount || undefined,
-        max_discount_amount: formData.max_discount_amount || undefined,
-        usage_limit: formData.usage_limit || undefined
-      };
+      const dataToSend = toPayload(formData);
 
       if (editingCoupon) {
         await adminCouponsService.updateCoupon(editingCoupon.id, dataToSend);
@@ -245,8 +272,9 @@ const AdminCoupons: React.FC = () => {
                         <Ticket className="w-5 h-5 text-neutral-500" />
                         <div>
                           <p className="font-medium text-white font-mono">{coupon.code}</p>
-                          {coupon.min_purchase_amount && (
-                            <p className="text-xs text-neutral-500">Min: {formatCurrency(coupon.min_purchase_amount)}</p>
+                          <p className="text-xs text-neutral-500">{coupon.description}</p>
+                          {coupon.minimum_purchase_amount !== null && (
+                            <p className="text-xs text-neutral-500">Compra mínima: {formatCurrency(coupon.minimum_purchase_amount)}</p>
                           )}
                         </div>
                       </div>
@@ -259,21 +287,27 @@ const AdminCoupons: React.FC = () => {
                           <Banknote className="w-4 h-4 text-green-500" />
                         )}
                         <span className="text-white font-medium">
-                          {coupon.discount_type === 'PERCENTAGE' ? `${coupon.discount_value}%` : formatCurrency(coupon.discount_value)}
+                          {coupon.discount_type === 'PERCENTAGE' ? `${Number(coupon.discount_value)}%` : formatCurrency(coupon.discount_value)}
                         </span>
                       </div>
+                      {coupon.discount_type === 'PERCENTAGE' && coupon.maximum_discount_amount !== null && (
+                        <p className="text-xs text-neutral-500">Máximo: {formatCurrency(coupon.maximum_discount_amount)}</p>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-neutral-300">
-                        <p>{formatDate(coupon.start_date)}</p>
+                        <p>{formatDate(coupon.starts_at)}</p>
                         <p className="text-neutral-500">hasta</p>
-                        <p>{formatDate(coupon.end_date)}</p>
+                        <p>{formatDate(coupon.expires_at)}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-neutral-300">
-                        <span className="font-medium text-white">{coupon.used_count}</span>
-                        <span className="text-neutral-500"> / {coupon.usage_limit || '∞'}</span>
+                        <span className="font-medium text-white">{coupon.times_used}</span>
+                        <span className="text-neutral-500"> / {coupon.usage_limit_total ?? '∞'}</span>
+                        {coupon.usage_limit_per_user !== null && (
+                          <p className="text-xs text-neutral-500">{coupon.usage_limit_per_user} por cliente</p>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -353,6 +387,22 @@ const AdminCoupons: React.FC = () => {
                   />
                 </div>
 
+                {/* Description */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-neutral-400 mb-1">
+                    Descripción
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
+                    placeholder="EJ: 10% de descuento en verano"
+                    maxLength={500}
+                    required
+                  />
+                </div>
+
                 {/* Discount Type */}
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-1">
@@ -360,11 +410,11 @@ const AdminCoupons: React.FC = () => {
                   </label>
                   <select
                     value={formData.discount_type}
-                    onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as CouponFormData['discount_type'] })}
+                    onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as CouponDiscountType })}
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   >
                     <option value="PERCENTAGE">Porcentaje (%)</option>
-                    <option value="FIXED">Monto Fijo (Bs.)</option>
+                    <option value="FIXED_AMOUNT">Monto Fijo (Bs.)</option>
                   </select>
                 </div>
 
@@ -377,9 +427,10 @@ const AdminCoupons: React.FC = () => {
                     <input
                       type="number"
                       value={formData.discount_value}
-                      onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
                       className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary pl-10"
-                      min="0"
+                      min="0.01"
+                      max={formData.discount_type === 'PERCENTAGE' ? 100 : undefined}
                       step="0.01"
                       required
                     />
@@ -396,8 +447,8 @@ const AdminCoupons: React.FC = () => {
                   </label>
                   <input
                     type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    value={formData.starts_at}
+                    onChange={(e) => setFormData({ ...formData, starts_at: e.target.value })}
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                     required
                   />
@@ -409,8 +460,8 @@ const AdminCoupons: React.FC = () => {
                   </label>
                   <input
                     type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    value={formData.expires_at}
+                    onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                     required
                   />
@@ -423,10 +474,11 @@ const AdminCoupons: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    value={formData.min_purchase_amount}
-                    onChange={(e) => setFormData({ ...formData, min_purchase_amount: parseFloat(e.target.value) })}
+                    value={formData.minimum_purchase_amount}
+                    onChange={(e) => setFormData({ ...formData, minimum_purchase_amount: e.target.value })}
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                     min="0"
+                    step="0.01"
                     placeholder="Opcional"
                   />
                 </div>
@@ -437,11 +489,27 @@ const AdminCoupons: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    value={formData.usage_limit}
-                    onChange={(e) => setFormData({ ...formData, usage_limit: parseInt(e.target.value) })}
+                    value={formData.usage_limit_total}
+                    onChange={(e) => setFormData({ ...formData, usage_limit_total: e.target.value })}
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
-                    min="0"
-                    placeholder="0 = Ilimitado"
+                    min="1"
+                    step="1"
+                    placeholder="Vacío = Ilimitado"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-1">
+                    Límite de Uso (Por Cliente)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.usage_limit_per_user}
+                    onChange={(e) => setFormData({ ...formData, usage_limit_per_user: e.target.value })}
+                    className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
+                    min="1"
+                    step="1"
+                    placeholder="Vacío = Ilimitado"
                   />
                 </div>
 
@@ -452,10 +520,11 @@ const AdminCoupons: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      value={formData.max_discount_amount}
-                      onChange={(e) => setFormData({ ...formData, max_discount_amount: parseFloat(e.target.value) })}
+                      value={formData.maximum_discount_amount}
+                      onChange={(e) => setFormData({ ...formData, maximum_discount_amount: e.target.value })}
                       className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
-                      min="0"
+                      min="0.01"
+                      step="0.01"
                       placeholder="Opcional"
                     />
                     <p className="text-xs text-neutral-500 mt-1">

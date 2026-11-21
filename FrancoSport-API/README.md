@@ -168,8 +168,68 @@ POST /api/orders/:orderNumber/cancel # Cancelar pedido (requiere auth)
 ```
 
 Al crear un pedido el cliente envía `items` (`product_id`, `variant_id` opcional, `quantity` entero de 1 a 99),
-`shipping_address_id`, `shipping_method_id`, `payment_method` y, opcionalmente, `redeem_points` (entero ≥ 0).
-Los precios, el costo de envío y el total se calculan siempre en el servidor.
+`shipping_address_id`, `shipping_method_id`, `payment_method` y, opcionalmente, `redeem_points` (entero ≥ 0) o
+`coupon_code` (texto, sin distinguir mayúsculas): un pedido usa cupón o puntos, no ambos.
+Los precios, el costo de envío, el descuento del cupón y el total se calculan siempre en el servidor; el descuento
+se aplica al subtotal (nunca al envío) y queda guardado en el pedido (`coupon_id`, `discount_amount`).
+Cancelar el pedido libera el uso del cupón; reabrirlo lo toma de nuevo o falla si el cupón ya no es válido.
+
+### Cupones
+
+```http
+POST /api/coupons/validate          # Calcular el descuento de un cupón (requiere auth)
+```
+
+Body: `{ "code": "VERANO10", "items": [{ "product_id": 1, "variant_id": null, "quantity": 2 }] }`. `items` es opcional
+(mismo formato que al crear un pedido); sin `items` se usa el carrito del cliente. No reserva nada: el descuento
+definitivo se calcula al crear el pedido. Máx. 30 validaciones por usuario cada 15 minutos.
+
+Respuesta `200`:
+
+```json
+{ "success": true, "data": { "code": "VERANO10", "description": "10% en verano", "discount_type": "PERCENTAGE", "subtotal": "40.00", "discount_amount": "4.00" } }
+```
+
+Errores `400` (`error.code` y `error.message`):
+
+| Código | Mensaje |
+| --- | --- |
+| `VALIDATION_ERROR` | `Ingrese el código del cupón`, `Debe incluir entre 1 y 50 productos`, `ID de producto inválido`, `La cantidad debe ser un número entero entre 1 y 99` |
+| `EMPTY_CART` | `Su carrito está vacío` |
+| `COUPON_INVALID` | `Cupón no válido o vencido` (no existe, inactivo o fuera de su vigencia) · `Este tipo de cupón todavía no está disponible en el checkout` |
+| `COUPON_MIN_PURCHASE` | `El cupón requiere una compra mínima de Bs. 50.00` |
+| `COUPON_LIMIT_REACHED` | `Este cupón ya alcanzó su límite de usos` |
+| `COUPON_USER_LIMIT` | `Ya usó este cupón el máximo de veces permitido` |
+
+`POST /api/orders` con `coupon_code` y `redeem_points` mayor a 0 a la vez responde `400 COUPON_POINTS_CONFLICT`: `Puede usar un cupón o sus puntos, no ambos`.
+
+### Cupones (administración)
+
+```http
+GET    /api/admin/coupons                   # Listar (search, is_active, page, limit)
+GET    /api/admin/coupons/:id               # Obtener uno
+POST   /api/admin/coupons                   # Crear
+PUT    /api/admin/coupons/:id               # Reemplazar los campos editables
+PATCH  /api/admin/coupons/:id/toggle-status # Activar o desactivar
+DELETE /api/admin/coupons/:id               # Eliminar (se desactiva si ya fue usado o está en un pedido)
+```
+
+Solo administradores. Campos de `POST` y `PUT` (los mismos de la tabla `coupons`):
+
+| Campo | Regla |
+| --- | --- |
+| `code` | Obligatorio, 3 a 50 letras o números; se guarda en mayúsculas y es único (repetido: `409 DUPLICATE_CODE`) |
+| `description` | Obligatoria, hasta 500 caracteres |
+| `discount_type` | `PERCENTAGE` o `FIXED_AMOUNT` (el envío gratis aún no se aplica en el checkout) |
+| `discount_value` | Mayor a 0, hasta 2 decimales; máximo 100 si es `PERCENTAGE`; en Bs. si es `FIXED_AMOUNT` |
+| `minimum_purchase_amount` | Opcional, ≥ 0, en Bs., sobre el subtotal |
+| `maximum_discount_amount` | Opcional, > 0, en Bs. (tope de un `PERCENTAGE`) |
+| `usage_limit_total` | Opcional, entero ≥ 1, usos totales (`times_used` los cuenta; no se edita) |
+| `usage_limit_per_user` | Opcional, entero ≥ 1, pedidos no cancelados de un mismo cliente |
+| `starts_at`, `expires_at` | Fechas ISO 8601; `expires_at` debe ser posterior a `starts_at` |
+| `is_active` | Opcional, booleano (por defecto `true`) |
+
+Los campos opcionales omitidos o en `null` significan sin límite.
 
 ### Métodos de envío
 
@@ -303,6 +363,7 @@ Los límites se cuentan en memoria por proceso y se reinician al cambiar de vent
 | `POST /api/auth/login`, `/register`, `/refresh` | 10 por ruta | IP |
 | `POST /api/auth/login`, `/register` | 10 por ruta | correo (sin distinguir mayúsculas) |
 | `POST /api/orders` | 20 | usuario |
+| `POST /api/coupons/validate` | 30 | usuario |
 | `POST /api/auth/verify-email`, `/reset-password` | 10 por ruta | IP |
 | `POST /api/auth/resend-verification` | 3 por hora | usuario |
 | `POST /api/auth/forgot-password` | 5 por hora | IP y correo (cada uno) |
@@ -336,7 +397,7 @@ Si encuentras errores:
 
 ## 📝 Próximas Funcionalidades
 
-- [ ] Checkout y procesamiento de pagos con Stripe
+- [x] Checkout con QR, transferencia y contra entrega; cupón o puntos
 - [ ] Sistema de reviews y ratings
 - [ ] Wishlist
 - [ ] Panel administrativo (CRUD completo)

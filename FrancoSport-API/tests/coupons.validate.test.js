@@ -1,16 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import express from 'express';
 import request from 'supertest';
-import { prisma, createContext, createProduct, createVariant, createOrderViaApi, snapshotOf } from './helpers.js';
-import { createCouponRoutes } from '../src/routes/coupon.routes.js';
-import { createRateLimiters } from '../src/middleware/rateLimits.js';
-import { errorHandler } from '../src/middleware/errorHandler.js';
-
-// Mounted here until the parent adds `app.use('/api/coupons', createCouponRoutes(limiters))` to app.js
-const app = express();
-app.use(express.json());
-app.use('/api/coupons', createCouponRoutes(createRateLimiters({ enabled: false })));
-app.use(errorHandler);
+import { app, prisma, createContext, createProduct, createVariant, createOrderViaApi, snapshotOf } from './helpers.js';
 
 const validate = (token, body) => {
   const req = request(app).post('/api/coupons/validate');

@@ -1,30 +1,38 @@
 import axios from '../axios';
 
+export type CouponDiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
+
+/** Same fields as the API Coupon model; decimals (Bs.) arrive as strings */
 export interface Coupon {
     id: number;
     code: string;
-    discount_type: 'PERCENTAGE' | 'FIXED';
-    discount_value: number;
-    min_purchase_amount?: number;
-    max_discount_amount?: number;
-    start_date: string;
-    end_date: string;
-    usage_limit?: number;
-    used_count: number;
+    description: string;
+    discount_type: CouponDiscountType;
+    discount_value: string;
+    minimum_purchase_amount: string | null;
+    maximum_discount_amount: string | null;
+    usage_limit_total: number | null;
+    usage_limit_per_user: number | null;
+    times_used: number;
+    starts_at: string;
+    expires_at: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
 }
 
+/** Body of create and update (PUT replaces the editable fields); null or absent limits mean none */
 export interface CouponFormData {
     code: string;
-    discount_type: 'PERCENTAGE' | 'FIXED';
+    description: string;
+    discount_type: CouponDiscountType;
     discount_value: number;
-    min_purchase_amount?: number;
-    max_discount_amount?: number;
-    start_date: string;
-    end_date: string;
-    usage_limit?: number;
+    minimum_purchase_amount?: number | null;
+    maximum_discount_amount?: number | null;
+    usage_limit_total?: number | null;
+    usage_limit_per_user?: number | null;
+    starts_at: string;
+    expires_at: string;
     is_active?: boolean;
 }
 

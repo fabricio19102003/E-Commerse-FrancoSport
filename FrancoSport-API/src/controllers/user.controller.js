@@ -109,7 +109,7 @@ export const changePassword = async (req, res, next) => {
     // Update password
     await prisma.user.update({
       where: { id: req.user.id },
-      data: { password_hash },
+      data: { password_hash, password_changed_at: new Date() },
     });
 
     res.json({

@@ -94,8 +94,6 @@ export const ROUTES = {
   // Auth routes
   LOGIN: '/login',
   REGISTER: '/registro',
-  FORGOT_PASSWORD: '/recuperar-contrasena',
-  RESET_PASSWORD: '/restablecer-contrasena/:token',
 
   // User routes (authenticated)
   PROFILE: '/perfil',

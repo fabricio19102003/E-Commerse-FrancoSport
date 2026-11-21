@@ -9,11 +9,7 @@ import { validateCoupon } from '../controllers/coupon.controller.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
-// TODO(parent): limiters.couponValidate (per user, 30 per 15 min, same `enabled` switch) does not
-// exist in rateLimits.js yet; until it does, validation is not rate-limited.
-const noLimit = (req, res, next) => next();
-
-export const createCouponRoutes = (limiters = {}) => {
+export const createCouponRoutes = (limiters) => {
   const router = express.Router();
 
   // Strict JSON numbers: strings like "2" or "1.5" are rejected
@@ -30,7 +26,7 @@ export const createCouponRoutes = (limiters = {}) => {
    */
   router.post(
     '/validate',
-    limiters.couponValidate ?? noLimit,
+    limiters.couponValidate,
     [
       body('code').custom((value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 50).withMessage('Ingrese el código del cupón'),
       body('items').optional().isArray({ min: 1, max: 50 }).withMessage('Debe incluir entre 1 y 50 productos'),

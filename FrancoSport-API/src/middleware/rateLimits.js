@@ -17,6 +17,7 @@ export const RATE_LIMITS = {
   auth: 10, // login, register and refresh, each per IP
   authEmail: 10, // login and register, each per email
   orders: 20, // order creation, per user
+  couponValidate: 30, // coupon validation at checkout, per user
   authToken: 10, // verify-email and reset-password, each per IP
   resendVerification: 3, // per user, per hour
   forgotPassword: 5, // per IP and per email, per hour
@@ -61,6 +62,12 @@ export const createRateLimiters = ({ enabled = process.env.NODE_ENV !== 'test' }
     orderCreate: make({
       limit: RATE_LIMITS.orders,
       message: 'Demasiados pedidos en poco tiempo; intente de nuevo en 15 minutos',
+      keyGenerator: (req) => `user-${req.user.id}`,
+    }),
+    // After authenticate: counted per account
+    couponValidate: make({
+      limit: RATE_LIMITS.couponValidate,
+      message: 'Demasiadas validaciones de cupón; intente de nuevo en 15 minutos',
       keyGenerator: (req) => `user-${req.user.id}`,
     }),
     verifyEmail: make({ limit: RATE_LIMITS.authToken, message: tokenMessage }),
