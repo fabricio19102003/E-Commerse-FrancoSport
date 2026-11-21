@@ -83,6 +83,20 @@ export const calculateShippingCost = (method, totalWeightKg) => {
 };
 
 /**
+ * The shipping method of an order or a coupon preview: it must exist, be active and be in an
+ * active zone. Same answer for every way of not being available.
+ */
+export const findAvailableShippingMethod = async (db, shippingMethodId) => {
+  const method = await db.shippingMethod.findFirst({
+    where: { id: shippingMethodId, is_active: true, shipping_zone: { is_active: true } },
+  });
+  if (!method) {
+    throw new OrderError('Método de envío no disponible');
+  }
+  return method;
+};
+
+/**
  * Price the requested lines from the database only: existing, active products and variants,
  * a variant without its own price uses the product price. Does not touch stock.
  *

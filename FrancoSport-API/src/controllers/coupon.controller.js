@@ -5,13 +5,14 @@
 
 import prisma from '../utils/prisma.js';
 import { OrderError, assertNoDuplicateLines } from '../services/order.service.js';
-import { previewCoupon } from '../services/coupon.service.js';
+import { couponAppliesTo, previewCoupon } from '../services/coupon.service.js';
 
 /**
  * Validate a coupon against the customer's cart
  * POST /api/coupons/validate
  *
  * The subtotal is computed here from database prices, never read from the client.
+ * A FREE_SHIPPING coupon needs `shipping_method_id`: its discount is that method's shipping cost.
  * Nothing is reserved: the order total is computed only when the order is created.
  */
 export const validateCoupon = async (req, res, next) => {
@@ -32,7 +33,12 @@ export const validateCoupon = async (req, res, next) => {
     }
     assertNoDuplicateLines(items);
 
-    const { coupon, subtotal, discount } = await previewCoupon(prisma, { code: req.body.code, userId, items });
+    const { coupon, subtotal, shippingCost, discount } = await previewCoupon(prisma, {
+      code: req.body.code,
+      userId,
+      items,
+      shippingMethodId: req.body.shipping_method_id,
+    });
 
     res.json({
       success: true,
@@ -40,7 +46,9 @@ export const validateCoupon = async (req, res, next) => {
         code: coupon.code,
         description: coupon.description,
         discount_type: coupon.discount_type,
+        applies_to: couponAppliesTo(coupon),
         subtotal: subtotal.toFixed(2),
+        shipping_cost: shippingCost ? shippingCost.toFixed(2) : null,
         discount_amount: discount.toFixed(2),
       },
     });

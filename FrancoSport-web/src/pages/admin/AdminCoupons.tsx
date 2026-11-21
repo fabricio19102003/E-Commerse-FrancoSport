@@ -20,7 +20,8 @@ import {
   Save,
   X,
   Banknote,
-  Percent
+  Percent,
+  Truck
 } from 'lucide-react';
 
 import { useConfirm } from '@/hooks/useConfirm';
@@ -65,9 +66,10 @@ const toPayload = (form: CouponFormState): CouponFormData => ({
   code: form.code.trim(),
   description: form.description.trim(),
   discount_type: form.discount_type,
-  discount_value: Number(form.discount_value),
+  // Free shipping discounts the shipping cost: it has no value (the API stores 0)
+  discount_value: form.discount_type === 'FREE_SHIPPING' ? 0 : Number(form.discount_value),
   minimum_purchase_amount: optionalNumber(form.minimum_purchase_amount),
-  maximum_discount_amount: form.discount_type === 'PERCENTAGE' ? optionalNumber(form.maximum_discount_amount) : null,
+  maximum_discount_amount: form.discount_type === 'FIXED_AMOUNT' ? null : optionalNumber(form.maximum_discount_amount),
   usage_limit_total: optionalNumber(form.usage_limit_total),
   usage_limit_per_user: optionalNumber(form.usage_limit_per_user),
   starts_at: new Date(`${form.starts_at}T00:00:00`).toISOString(),
@@ -283,14 +285,20 @@ const AdminCoupons: React.FC = () => {
                       <div className="flex items-center space-x-1">
                         {coupon.discount_type === 'PERCENTAGE' ? (
                           <Percent className="w-4 h-4 text-primary" />
+                        ) : coupon.discount_type === 'FREE_SHIPPING' ? (
+                          <Truck className="w-4 h-4 text-primary" />
                         ) : (
                           <Banknote className="w-4 h-4 text-green-500" />
                         )}
                         <span className="text-white font-medium">
-                          {coupon.discount_type === 'PERCENTAGE' ? `${Number(coupon.discount_value)}%` : formatCurrency(coupon.discount_value)}
+                          {coupon.discount_type === 'PERCENTAGE'
+                            ? `${Number(coupon.discount_value)}%`
+                            : coupon.discount_type === 'FREE_SHIPPING'
+                              ? 'Envío gratis'
+                              : formatCurrency(coupon.discount_value)}
                         </span>
                       </div>
-                      {coupon.discount_type === 'PERCENTAGE' && coupon.maximum_discount_amount !== null && (
+                      {coupon.discount_type !== 'FIXED_AMOUNT' && coupon.maximum_discount_amount !== null && (
                         <p className="text-xs text-neutral-500">Máximo: {formatCurrency(coupon.maximum_discount_amount)}</p>
                       )}
                     </td>
@@ -415,10 +423,16 @@ const AdminCoupons: React.FC = () => {
                   >
                     <option value="PERCENTAGE">Porcentaje (%)</option>
                     <option value="FIXED_AMOUNT">Monto Fijo (Bs.)</option>
+                    <option value="FREE_SHIPPING">Envío gratis</option>
                   </select>
                 </div>
 
-                {/* Discount Value */}
+                {/* Discount Value (free shipping has none: it discounts the shipping cost) */}
+                {formData.discount_type === 'FREE_SHIPPING' ? (
+                  <div className="flex items-end text-sm text-neutral-400">
+                    El descuento es el costo de envío del pedido (hasta el máximo, si lo define).
+                  </div>
+                ) : (
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-1">
                     Valor del Descuento
@@ -439,6 +453,7 @@ const AdminCoupons: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Dates */}
                 <div>
@@ -513,7 +528,7 @@ const AdminCoupons: React.FC = () => {
                   />
                 </div>
 
-                {formData.discount_type === 'PERCENTAGE' && (
+                {formData.discount_type !== 'FIXED_AMOUNT' && (
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-neutral-400 mb-1">
                       Descuento Máximo (Bs.)
@@ -528,7 +543,9 @@ const AdminCoupons: React.FC = () => {
                       placeholder="Opcional"
                     />
                     <p className="text-xs text-neutral-500 mt-1">
-                      Límite máximo de descuento en dinero para cupones porcentuales.
+                      {formData.discount_type === 'FREE_SHIPPING'
+                        ? 'Límite máximo del envío que cubre el cupón; el cliente paga el resto.'
+                        : 'Límite máximo de descuento en dinero para cupones porcentuales.'}
                     </p>
                   </div>
                 )}

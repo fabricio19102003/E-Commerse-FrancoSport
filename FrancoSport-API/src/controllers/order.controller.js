@@ -14,6 +14,7 @@ import {
   assertNoDuplicateLines,
   calculateShippingCost,
   cancelOrderInTransaction,
+  findAvailableShippingMethod,
   loadPricedLines,
   runTransaction,
   sortByStockLock,
@@ -258,18 +259,16 @@ export const createOrder = async (req, res, next) => {
       }
 
       // Shipping method must exist, be active and be in an active zone
-      const shippingMethod = await tx.shippingMethod.findFirst({
-        where: { id: shipping_method_id, is_active: true, shipping_zone: { is_active: true } },
-      });
-      if (!shippingMethod) {
-        throw new OrderError('Método de envío no disponible');
-      }
+      const shippingMethod = await findAvailableShippingMethod(tx, shipping_method_id);
 
       // Prices, weights and availability come only from the database
       const { lines, subtotal, totalWeight } = await loadPricedLines(tx, items);
 
+      // Shipping is computed from the method and the total weight
+      const shippingCost = calculateShippingCost(shippingMethod, totalWeight);
+
       // Coupon rules that need no counter fail before any stock is taken
-      const usable = couponCode ? await findUsableCoupon(tx, couponCode, subtotal) : null;
+      const usable = couponCode ? await findUsableCoupon(tx, couponCode, subtotal, shippingCost) : null;
 
       // Take stock atomically: the conditional update fails if another order took it first.
       // Fixed order (product, variant) so concurrent orders do not deadlock.
@@ -306,8 +305,6 @@ export const createOrder = async (req, res, next) => {
         variant_name: variant ? variant.variant_name : null,
       }));
 
-      // Shipping is computed from the method and the total weight
-      const shippingCost = calculateShippingCost(shippingMethod, totalWeight);
       const grossTotal = subtotal.plus(shippingCost);
 
       // Points: only what the total allows is used (1 point = 1/100 of currency)
@@ -332,7 +329,7 @@ export const createOrder = async (req, res, next) => {
           }
         }
       }
-      // The discount is the coupon's or the points' (never both), and never touches shipping
+      // The discount is the coupon's or the points' (never both); a FREE_SHIPPING coupon's is the shipping cost it takes off
       const discountAmount = usable ? usable.discount : new Decimal(pointsUsed).dividedBy(POINTS_PER_UNIT);
       const total = grossTotal.minus(discountAmount);
 

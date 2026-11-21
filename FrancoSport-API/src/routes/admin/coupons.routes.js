@@ -40,8 +40,10 @@ const couponValidation = [
     .trim()
     .notEmpty().withMessage('La descripción es requerida').bail()
     .isLength({ max: 500 }).withMessage('La descripción no puede superar los 500 caracteres'),
-  body('discount_type').isIn(['PERCENTAGE', 'FIXED_AMOUNT']).withMessage('Tipo de descuento inválido'),
+  body('discount_type').isIn(['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING']).withMessage('Tipo de descuento inválido'),
+  // FREE_SHIPPING discounts the shipping cost, so it has no discount value (stored as 0)
   body('discount_value')
+    .if((value, { req }) => req.body.discount_type !== 'FREE_SHIPPING')
     .custom((value) => isMoney(value, { exclusiveMin: true })).withMessage('El valor del descuento debe ser mayor a 0').bail()
     .custom(hasAtMostTwoDecimals).withMessage('El valor del descuento admite hasta 2 decimales')
     .custom((value, { req }) => req.body.discount_type !== 'PERCENTAGE' || Number(value) <= 100)

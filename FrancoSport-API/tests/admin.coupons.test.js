@@ -114,7 +114,6 @@ describe('POST /api/admin/coupons (S5)', () => {
     ['missing description', { description: undefined }, 'description', 'La descripción es requerida'],
     ['blank description', { description: '   ' }, 'description', 'La descripción es requerida'],
     ['unknown type', { discount_type: 'FIXED' }, 'discount_type', 'Tipo de descuento inválido'],
-    ['free shipping type', { discount_type: 'FREE_SHIPPING' }, 'discount_type', 'Tipo de descuento inválido'],
     ['zero value', { discount_value: 0 }, 'discount_value', 'El valor del descuento debe ser mayor a 0'],
     ['negative value', { discount_value: -5 }, 'discount_value', 'El valor del descuento debe ser mayor a 0'],
     ['non numeric value', { discount_value: 'mucho' }, 'discount_value', 'El valor del descuento debe ser mayor a 0'],
@@ -140,6 +139,59 @@ describe('POST /api/admin/coupons (S5)', () => {
   it('accepts a fixed amount above 100 and exactly 100 percent', async () => {
     expect((await create({ discount_type: 'FIXED_AMOUNT', discount_value: 150 })).status).toBe(201);
     expect((await create({ discount_value: 100 })).status).toBe(201);
+  });
+
+  it('creates a FREE_SHIPPING coupon without discount_value (stored as 0), keeping the other limits', async () => {
+    const body = validBody({ discount_type: 'FREE_SHIPPING', discount_value: undefined, maximum_discount_amount: 12.5 });
+
+    const res = await adminCall('post', '/api/admin/coupons', body);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({
+      discount_type: 'FREE_SHIPPING',
+      discount_value: '0',
+      minimum_purchase_amount: '20',
+      maximum_discount_amount: '12.5',
+      usage_limit_total: 100,
+      usage_limit_per_user: 2,
+    });
+    const stored = await prisma.coupon.findUnique({ where: { id: res.body.data.id } });
+    expect(stored.discount_type).toBe('FREE_SHIPPING');
+    expect(stored.discount_value.toFixed(2)).toBe('0.00');
+  });
+
+  it('a FREE_SHIPPING coupon ignores a sent discount_value (stored as 0)', async () => {
+    const res = await create({ discount_type: 'FREE_SHIPPING', discount_value: 40 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.discount_value).toBe('0');
+  });
+
+  it.each([
+    ['PERCENTAGE', undefined],
+    ['FIXED_AMOUNT', undefined],
+    ['FIXED_AMOUNT', null],
+  ])('PRESERVE: %s still requires discount_value (%s)', async (discount_type, discount_value) => {
+    const before = await countCoupons();
+
+    expectInvalid(
+      await create({ discount_type, discount_value }),
+      'discount_value',
+      'El valor del descuento debe ser mayor a 0'
+    );
+
+    expect(await countCoupons()).toBe(before);
+  });
+
+  it('a FREE_SHIPPING coupon still validates the other fields', async () => {
+    const before = await countCoupons();
+
+    expectInvalid(
+      await create({ discount_type: 'FREE_SHIPPING', discount_value: undefined, maximum_discount_amount: 0 }),
+      'maximum_discount_amount',
+      'El descuento máximo debe ser mayor a 0 (máximo 2 decimales)'
+    );
+    expect(await countCoupons()).toBe(before);
   });
 
   it('rejects an expiry that is not after the start', async () => {
@@ -199,6 +251,23 @@ describe('PUT /api/admin/coupons/:id (S5)', () => {
       times_used: 4,
       is_active: false,
     });
+  });
+
+  it('switches a coupon to FREE_SHIPPING without discount_value and back, keeping times_used', async () => {
+    const created = (await create()).body.data;
+    await prisma.coupon.update({ where: { id: created.id }, data: { times_used: 2 } });
+
+    const toFree = await adminCall(
+      'put',
+      `/api/admin/coupons/${created.id}`,
+      validBody({ code: created.code, discount_type: 'FREE_SHIPPING', discount_value: undefined })
+    );
+    expect(toFree.status).toBe(200);
+    expect(toFree.body.data).toMatchObject({ discount_type: 'FREE_SHIPPING', discount_value: '0', times_used: 2 });
+
+    const back = await adminCall('put', `/api/admin/coupons/${created.id}`, validBody({ code: created.code, discount_value: 15 }));
+    expect(back.status).toBe(200);
+    expect(back.body.data).toMatchObject({ discount_type: 'PERCENTAGE', discount_value: '15', times_used: 2 });
   });
 
   it('can rename to a free code and rejects another coupon code with 409, changing nothing', async () => {
@@ -368,6 +437,18 @@ describe('admin only (S5)', () => {
 });
 
 describe('a coupon created through the admin API at checkout (S5)', () => {
+  it('a FREE_SHIPPING coupon created without discount_value discounts the shipping (S3)', async () => {
+    const ctx = await createContext({ product: { price: '10.00', stock: 10 } });
+    const created = await create({ discount_type: 'FREE_SHIPPING', discount_value: undefined, maximum_discount_amount: null, minimum_purchase_amount: null });
+
+    const order = await createOrderViaApi(ctx, { coupon_code: created.body.data.code });
+
+    expect(order.status).toBe(201);
+    expect(Number(order.body.data.shipping_cost)).toBe(5);
+    expect(Number(order.body.data.discount_amount)).toBe(5);
+    expect(Number(order.body.data.total_amount)).toBe(20);
+  });
+
   it('is usable: lowercase code, discount stored on the order, times_used incremented', async () => {
     const ctx = await createContext({ product: { price: '10.00', stock: 10 } });
     const created = await create({

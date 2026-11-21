@@ -3,12 +3,13 @@
  * Franco Sport E-Commerce
  *
  * Coupon rules, discount math and the usage counter. A coupon is validated on
- * the server only; the discount applies to the subtotal (shipping never).
+ * the server only; PERCENTAGE and FIXED_AMOUNT discount the subtotal, FREE_SHIPPING
+ * discounts the shipping cost (never product prices).
  */
 
 import { Prisma } from '@prisma/client';
 // order.service also imports from this module; each only uses the other inside functions
-import { OrderError, loadPricedLines, roundMoney } from './order.service.js';
+import { OrderError, calculateShippingCost, findAvailableShippingMethod, loadPricedLines, roundMoney } from './order.service.js';
 
 const { Decimal } = Prisma;
 
@@ -17,6 +18,9 @@ const failure = (code, message, reopenReason) => ({ code, message, reopenReason 
 
 const invalidCoupon = (coupon) =>
   failure('COUPON_INVALID', 'Cupón no válido o vencido', `el cupón ${coupon?.code ?? ''} ya no es válido o venció`);
+
+const shippingMethodRequired = () =>
+  new OrderError('Seleccione un método de envío para aplicar este cupón', { code: 'SHIPPING_METHOD_REQUIRED' });
 
 const unsupportedCoupon = (coupon) =>
   failure(
@@ -59,14 +63,25 @@ const raise = (found, { reopen = false } = {}) => {
 /** The code as entered by the customer: trimmed and upper case (codes are stored upper case) */
 export const normalizeCouponCode = (code) => (typeof code === 'string' ? code.trim().toUpperCase() : '');
 
+/** Where a coupon takes its discount from: the shipping cost (FREE_SHIPPING) or the subtotal */
+export const couponAppliesTo = (coupon) => (coupon.discount_type === 'FREE_SHIPPING' ? 'SHIPPING' : 'SUBTOTAL');
+
 /**
- * Discount of a coupon on a subtotal, rounded half up to 2 places:
- * PERCENTAGE of the subtotal capped by maximum_discount_amount, FIXED_AMOUNT as is;
- * never more than the subtotal.
+ * Discount of a coupon, rounded half up to 2 places:
+ * PERCENTAGE of the subtotal capped by maximum_discount_amount, FIXED_AMOUNT as is,
+ * never more than the subtotal; FREE_SHIPPING the whole shipping cost capped by
+ * maximum_discount_amount when set (never more than the shipping, never touching the subtotal).
  */
-export const calculateCouponDiscount = (coupon, subtotal) => {
+export const calculateCouponDiscount = (coupon, subtotal, shippingCost = 0) => {
   const base = new Decimal(subtotal);
   let discount;
+  if (coupon.discount_type === 'FREE_SHIPPING') {
+    discount = roundMoney(shippingCost);
+    if (coupon.maximum_discount_amount !== null) {
+      discount = Decimal.min(discount, roundMoney(coupon.maximum_discount_amount));
+    }
+    return Decimal.max(discount, 0);
+  }
   if (coupon.discount_type === 'PERCENTAGE') {
     discount = roundMoney(base.times(coupon.discount_value).dividedBy(100));
     if (coupon.maximum_discount_amount !== null) {
@@ -83,7 +98,7 @@ const staticFailure = (coupon, subtotal, now) => {
   if (!coupon || !coupon.is_active || coupon.starts_at > now || coupon.expires_at < now) {
     return invalidCoupon(coupon);
   }
-  if (!['PERCENTAGE', 'FIXED_AMOUNT'].includes(coupon.discount_type)) {
+  if (!['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING'].includes(coupon.discount_type)) {
     return unsupportedCoupon(coupon);
   }
   if (coupon.minimum_purchase_amount !== null && new Decimal(subtotal).lt(coupon.minimum_purchase_amount)) {
@@ -118,15 +133,16 @@ const userLimitFailure = async (db, coupon, userId, options) => {
 
 /**
  * Look the coupon up by code and check the rules that need no counter
- * (active, dates, type, minimum purchase on the subtotal).
+ * (active, dates, type, minimum purchase on the subtotal). `shippingCost` is what a
+ * FREE_SHIPPING coupon discounts.
  *
  * @returns {Promise<{ coupon: object, discount: Decimal }>}
  */
-export const findUsableCoupon = async (db, code, subtotal, now = new Date()) => {
+export const findUsableCoupon = async (db, code, subtotal, shippingCost = 0, now = new Date()) => {
   const coupon = await db.coupon.findUnique({ where: { code: normalizeCouponCode(code) } });
   const broken = staticFailure(coupon, subtotal, now);
   if (broken) raise(broken);
-  return { coupon, discount: calculateCouponDiscount(coupon, subtotal) };
+  return { coupon, discount: calculateCouponDiscount(coupon, subtotal, shippingCost) };
 };
 
 /**
@@ -177,10 +193,14 @@ export const retakeCouponUse = async (tx, order) => {
 /**
  * What the checkout shows for a code on a list of cart lines: the same rules as order
  * creation, evaluated on the server from database prices. It reserves nothing.
+ * A FREE_SHIPPING coupon needs `shippingMethodId` (its discount is that method's cost).
  */
-export const previewCoupon = async (db, { code, userId, items }) => {
-  const { subtotal } = await loadPricedLines(db, items);
-  const { coupon, discount } = await findUsableCoupon(db, code, subtotal);
+export const previewCoupon = async (db, { code, userId, items, shippingMethodId }) => {
+  const { subtotal, totalWeight } = await loadPricedLines(db, items);
+  const shippingMethod = shippingMethodId ? await findAvailableShippingMethod(db, shippingMethodId) : null;
+  const shippingCost = shippingMethod ? calculateShippingCost(shippingMethod, totalWeight) : null;
+  const { coupon, discount } = await findUsableCoupon(db, code, subtotal, shippingCost ?? 0);
+  if (coupon.discount_type === 'FREE_SHIPPING' && shippingCost === null) throw shippingMethodRequired();
 
   if (coupon.usage_limit_total !== null && coupon.times_used >= coupon.usage_limit_total) {
     raise(totalLimitReached(coupon));
@@ -188,5 +208,5 @@ export const previewCoupon = async (db, { code, userId, items }) => {
   const exceeded = await userLimitFailure(db, coupon, userId);
   if (exceeded) raise(exceeded);
 
-  return { coupon, subtotal: roundMoney(subtotal), discount };
+  return { coupon, subtotal: roundMoney(subtotal), shippingCost, discount };
 };
