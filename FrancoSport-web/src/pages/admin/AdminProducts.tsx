@@ -6,30 +6,29 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { adminProductsService } from '@/api/admin';
 import {
   Plus,
   Search,
-  Filter,
   Edit,
   Trash2,
   Eye,
   AlertTriangle,
   Package,
-  DollarSign,
   TrendingUp,
   Loader2,
 } from 'lucide-react';
 import type { Product } from '@/types';
+import type { AdminProductFilters } from '@/api/admin/products.service';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 import toast from 'react-hot-toast';
 
 import { useConfirm } from '@/hooks/useConfirm';
 
 const AdminProducts: React.FC = () => {
-  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +44,7 @@ const AdminProducts: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      const filters: any = {};
+      const filters: AdminProductFilters = {};
       if (searchTerm) filters.search = searchTerm;
       if (selectedCategory) filters.category_id = selectedCategory;
       if (selectedBrand) filters.brand_id = selectedBrand;
@@ -55,9 +54,9 @@ const AdminProducts: React.FC = () => {
 
       const response = await adminProductsService.getProducts(filters);
       setProducts(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching products:', err);
-      setError(err.response?.data?.error?.message || 'Error al cargar productos');
+      setError(getApiErrorMessage(err, 'Error al cargar productos'));
     } finally {
       setIsLoading(false);
     }
@@ -83,9 +82,9 @@ const AdminProducts: React.FC = () => {
       toast.success('Producto eliminado exitosamente');
       // Update local state to remove product immediately
       setProducts(prev => prev.filter(p => p.id !== productId));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting product:', err);
-      toast.error(err.response?.data?.error?.message || 'Error al eliminar producto');
+      toast.error(getApiErrorMessage(err, 'Error al eliminar producto'));
     }
   };
 
@@ -95,9 +94,9 @@ const AdminProducts: React.FC = () => {
       await adminProductsService.toggleProductStatus(productId);
       fetchProducts(); // Refresh list
       toast.success('Estado actualizado');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error toggling status:', err);
-      toast.error(err.response?.data?.error?.message || 'Error al cambiar estado');
+      toast.error(getApiErrorMessage(err, 'Error al cambiar estado'));
     }
   };
 

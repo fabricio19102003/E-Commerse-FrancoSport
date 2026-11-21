@@ -6,7 +6,7 @@
  */
 
 import { api } from './axios';
-import type { Order, CancelOrderInput } from '@/types';
+import type { Order, CheckoutData } from '@/types';
 
 /**
  * Get user's orders
@@ -37,7 +37,12 @@ export const cancelOrder = async (orderNumber: string, reason: string): Promise<
 /**
  * Create order
  */
-export const createOrder = async (data: any): Promise<Order> => {
+export interface CreateOrderPayload extends CheckoutData {
+  items: { product_id: number; variant_id?: number; quantity: number }[];
+  redeem_points?: number;
+}
+
+export const createOrder = async (data: CreateOrderPayload): Promise<Order> => {
   const response = await api.post<{ success: boolean; data: Order }>('/orders', data);
   return response.data.data;
 };

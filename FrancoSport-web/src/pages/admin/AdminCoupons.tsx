@@ -8,6 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import { adminCouponsService } from '@/api/admin';
 import type { Coupon, CouponFormData } from '@/api/admin/coupons.service';
+import { getApiErrorMessage } from '@/utils/apiError';
 import {
   Plus,
   Search,
@@ -17,7 +18,6 @@ import {
   Ticket,
   Save,
   X,
-  Calendar,
   DollarSign,
   Percent
 } from 'lucide-react';
@@ -54,9 +54,9 @@ const AdminCoupons: React.FC = () => {
       setError(null);
       const response = await adminCouponsService.getCoupons({ search: searchTerm });
       setCoupons(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching coupons:', err);
-      setError(err.response?.data?.error?.message || 'Error al cargar cupones');
+      setError(getApiErrorMessage(err, 'Error al cargar cupones'));
     } finally {
       setIsLoading(false);
     }
@@ -127,9 +127,9 @@ const AdminCoupons: React.FC = () => {
 
       handleCloseModal();
       fetchCoupons();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving coupon:', err);
-      setError(err.response?.data?.error?.message || 'Error al guardar cupón');
+      setError(getApiErrorMessage(err, 'Error al guardar cupón'));
     } finally {
       setIsSaving(false);
     }
@@ -150,9 +150,9 @@ const AdminCoupons: React.FC = () => {
       await adminCouponsService.deleteCoupon(id);
       alert('Cupón eliminado exitosamente');
       fetchCoupons();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting coupon:', err);
-      alert(err.response?.data?.error?.message || 'Error al eliminar cupón');
+      alert(getApiErrorMessage(err, 'Error al eliminar cupón'));
     }
   };
 
@@ -161,9 +161,9 @@ const AdminCoupons: React.FC = () => {
     try {
       await adminCouponsService.toggleCouponStatus(id);
       fetchCoupons();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error toggling status:', err);
-      alert(err.response?.data?.error?.message || 'Error al cambiar estado');
+      alert(getApiErrorMessage(err, 'Error al cambiar estado'));
     }
   };
 
@@ -360,7 +360,7 @@ const AdminCoupons: React.FC = () => {
                   </label>
                   <select
                     value={formData.discount_type}
-                    onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as any })}
+                    onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as CouponFormData['discount_type'] })}
                     className="w-full px-4 py-2 bg-black border border-neutral-800 rounded-lg text-white focus:outline-none focus:border-primary"
                   >
                     <option value="PERCENTAGE">Porcentaje (%)</option>

@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import type { Order } from '@/types';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';

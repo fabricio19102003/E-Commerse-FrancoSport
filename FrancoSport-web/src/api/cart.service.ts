@@ -6,7 +6,7 @@
  */
 
 import { api } from './axios';
-import type { Cart, AddToCartInput, UpdateCartItemInput } from '@/types';
+import type { Cart, AddToCartInput } from '@/types';
 
 /**
  * Get user's cart

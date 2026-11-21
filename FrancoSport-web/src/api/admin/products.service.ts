@@ -6,7 +6,7 @@
  */
 
 import { api } from '../axios';
-import type { Product, ProductFilters } from '@/types';
+import type { Product, ProductFilters, ProductListResponse } from '@/types';
 
 export interface CreateProductData {
   name: string;
@@ -35,13 +35,20 @@ export interface CreateProductData {
   }[];
 }
 
-export interface UpdateProductData extends Partial<CreateProductData> {}
+export type UpdateProductData = Partial<CreateProductData>;
+
+/** Admin list filters: ids may come straight from <select> values and inactive products can be requested */
+export type AdminProductFilters = Omit<ProductFilters, 'category_id' | 'brand_id'> & {
+  category_id?: number | string;
+  brand_id?: number | string;
+  is_active?: boolean;
+};
 
 /**
  * Get all products (admin view - includes inactive)
  */
-export const getProducts = async (filters?: ProductFilters) => {
-  const response = await api.get<{ success: boolean; data: Product[]; pagination: any }>(
+export const getProducts = async (filters?: AdminProductFilters) => {
+  const response = await api.get<{ success: boolean; data: Product[]; pagination: ProductListResponse['pagination'] }>(
     '/admin/products',
     { params: filters }
   );

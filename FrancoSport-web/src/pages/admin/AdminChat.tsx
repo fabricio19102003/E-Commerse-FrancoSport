@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Send, User, MessageCircle, Clock, Check, CheckCheck } from 'lucide-react';
+import { Search, Send, User, MessageCircle, Check, CheckCheck } from 'lucide-react';
 import { chatService } from '@/api/chat.service';
 import type { ChatMessage } from '@/api/chat.service';
-import { useAuthStore } from '@/store';
 import toast from 'react-hot-toast';
 
 interface Conversation {
@@ -13,7 +12,6 @@ interface Conversation {
 }
 
 const AdminChat: React.FC = () => {
-  const { user } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUser, setSelectedUser] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
