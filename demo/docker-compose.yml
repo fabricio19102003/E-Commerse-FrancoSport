@@ -1,0 +1,24 @@
+# MySQL for the local Franco Sport demo (see ../DEMO.md). Started by demo/start.sh.
+# Throwaway local database: published on 127.0.0.1 only, data kept in a named volume.
+name: francosport-demo
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: francosport-demo-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: francosport_demo
+      MYSQL_DATABASE: francosport_demo
+    ports:
+      - "127.0.0.1:${DEMO_DB_PORT:-33316}:3306"
+    volumes:
+      - francosport-demo-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+volumes:
+  francosport-demo-mysql:
+    name: francosport-demo-mysql

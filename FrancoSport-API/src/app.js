@@ -10,6 +10,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import { localStorageEnabled, localUploadsDir } from './config/cloudinary.js';
 
 // Import ES6 routes
 import { createAuthRoutes } from './routes/auth.routes.js';
@@ -107,6 +108,11 @@ export const createApp = ({ rateLimits = {}, trustProxy = parseTrustProxy(proces
   // Body parser
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  // Images saved on this machine: DEVELOPMENT ONLY (STORAGE_DRIVER=local; never in production)
+  if (localStorageEnabled() && process.env.NODE_ENV !== 'production') {
+    app.use('/uploads', express.static(localUploadsDir(), { dotfiles: 'ignore', index: false, redirect: false, fallthrough: true }));
+  }
 
   // Morgan logger (only in development)
   if (process.env.NODE_ENV === 'development') {

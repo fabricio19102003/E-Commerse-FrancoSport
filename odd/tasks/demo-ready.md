@@ -16,3 +16,4 @@ Branch chore/demo-ready (from main).
 ## Log
 - L1 (user): "ok lo del envio gratis a partir de 500bs quitalo. tambien quiero que luego revises que existan usuario admin en el seed, como se levanta el proyecto y demas para poder mostrarle al propietario de franco sport".
 - L2 (user): demo "En mi máquina (local)".
+- L3 (user, on images for the demo): "Guardado local solo para desarrollo (Recomendado)" → a local storage driver for development only: images saved under a local folder and served by the API; enabling it with NODE_ENV=production makes the API refuse to start; tests for both. Needs src/app.js (static route) — parent widens the worker surface.
