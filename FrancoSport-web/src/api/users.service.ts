@@ -6,6 +6,8 @@
  */
 
 import { api } from './axios';
+import { STORAGE_KEYS } from '@/constants/config';
+import { useAuthStore } from '@/store/authStore';
 import type { 
   User, 
   UpdateUserInput, 
@@ -31,10 +33,17 @@ export const updateProfile = async (data: UpdateUserInput): Promise<User> => {
 };
 
 /**
- * Change password
+ * Change password. The API ends the user's other sessions and answers with a fresh
+ * access and refresh token, which replace the stored ones so this session continues.
  */
 export const changePassword = async (data: ChangePasswordInput): Promise<void> => {
-  await api.put('/users/password', data);
+  const response = await api.put<{ success: boolean; data: { token: string; refreshToken: string } }>(
+    '/users/password',
+    data
+  );
+  const { token, refreshToken } = response.data.data;
+  localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+  useAuthStore.getState().setToken(token);
 };
 
 /**

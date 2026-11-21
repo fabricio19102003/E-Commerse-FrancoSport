@@ -69,7 +69,8 @@ describe('forgot-password', () => {
     const app = limited({ trustProxy: 1 });
     const { user } = await createUser();
     for (let i = 0; i < 5; i++) expect((await forgot(app, user.email, `10.5.0.${i}`)).status).toBe(200);
-    expect(sendMail).toHaveBeenCalledTimes(5);
+    // The emails are sent after each response
+    await vi.waitFor(() => expect(sendMail).toHaveBeenCalledTimes(5));
 
     const res = await forgot(app, user.email.toUpperCase(), '10.5.0.99');
     expect(res.status).toBe(429);

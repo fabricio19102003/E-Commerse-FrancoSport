@@ -78,11 +78,3 @@ export const consumeToken = async (rawToken, type, db = prisma) => {
   const row = await db.userToken.findUnique({ where: { token_hash }, select: { user_id: true } });
   return row.user_id;
 };
-
-/**
- * Same work as issuing a token (random bytes, hash, one query) without storing anything.
- * Used when an email is unknown so the answer takes about as long as for a known one.
- */
-export const simulateIssueToken = async () => {
-  await prisma.userToken.findUnique({ where: { token_hash: hashToken(generateRawToken()) }, select: { id: true } });
-};

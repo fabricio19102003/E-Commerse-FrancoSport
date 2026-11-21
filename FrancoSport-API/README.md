@@ -135,8 +135,8 @@ POST /api/auth/reset-password       # { token, password } Fijar una nueva contra
 
 - Los tokens son aleatorios (`crypto.randomBytes`), de un solo uso y solo se guarda su hash SHA-256 en `user_tokens` (con `expires_at` y `used_at`). Verificación: 24 h. Recuperación: 60 min.
 - El registro envía el correo de verificación. Crear un pedido exige correo verificado (`403 EMAIL_NOT_VERIFIED`; el middleware `requireVerifiedEmail` de `src/middleware/auth.js`; los administradores quedan exentos). Los correos de marketing siguen yendo solo a clientes verificados.
-- `forgot-password` responde igual (200) exista o no el correo, y hace el mismo trabajo en ambos casos.
-- `reset-password` aplica las mismas reglas de contraseña que el registro, invalida el token y los demás tokens de recuperación del usuario, y guarda `users.password_changed_at`. Los refresh tokens llevan esa fecha: tras un cambio de contraseña los emitidos antes dejan de renovar el acceso (`401 INVALID_REFRESH_TOKEN`). Los tokens de acceso ya emitidos siguen valiendo hasta su expiración (15 min por defecto).
+- `forgot-password` responde igual (200) exista o no el correo, tras la misma consulta; el token y el correo de un correo registrado se crean después de responder. Un nuevo pedido invalida los enlaces anteriores.
+- `reset-password` aplica las mismas reglas de contraseña que el registro, invalida el token y los demás tokens de recuperación del usuario, y guarda `users.password_changed_at`. Los refresh tokens llevan esa fecha: tras un cambio de contraseña los emitidos antes dejan de renovar el acceso (`401 INVALID_REFRESH_TOKEN`). Los tokens de acceso llevan la misma marca (`pwd`): tras un restablecimiento o cambio de contraseña los emitidos antes responden `401 TOKEN_REVOKED`.
 - Los enlaces usan `FRONTEND_URL`: `/verificar-correo?token=…` y `/restablecer-contrasena?token=…`. Sin configuración SMTP los correos solo se registran en consola (`[MOCK EMAIL]`); las pruebas simulan únicamente el transporte y nunca envían correo real.
 
 ### Productos
@@ -242,7 +242,7 @@ GET /api/shipping-methods           # Métodos activos en zonas activas (públic
 ```http
 GET    /api/users/profile           # Obtener perfil (requiere auth)
 PUT    /api/users/profile           # Actualizar perfil (requiere auth)
-PUT    /api/users/password          # Cambiar contraseña (requiere auth)
+PUT    /api/users/password          # Cambiar contraseña (requiere auth); cierra las demás sesiones y devuelve data.token y data.refreshToken nuevos
 GET    /api/users/addresses         # Listar direcciones (requiere auth)
 POST   /api/users/addresses         # Crear dirección (requiere auth)
 PUT    /api/users/addresses/:id     # Actualizar dirección (requiere auth)

@@ -11,6 +11,7 @@ import {
   CANCELLABLE_STATUSES,
   OrderError,
   POINTS_PER_UNIT,
+  assertNoDuplicateLines,
   calculateShippingCost,
   cancelOrderInTransaction,
   loadPricedLines,
@@ -246,17 +247,7 @@ export const createOrder = async (req, res, next) => {
       throw new OrderError('Puede usar un cupón o sus puntos, no ambos', { code: 'COUPON_POINTS_CONFLICT' });
     }
 
-    // Same product/variant twice is rejected, not merged
-    const seen = new Set();
-    for (const item of items) {
-      const key = `${item.product_id}:${item.variant_id ?? ''}`;
-      if (seen.has(key)) {
-        throw new OrderError(
-          `Producto repetido en el pedido: ${item.product_id}${item.variant_id ? ` (variante ${item.variant_id})` : ''}. Combine las cantidades en una sola línea`
-        );
-      }
-      seen.add(key);
-    }
+    assertNoDuplicateLines(items);
 
     // Start transaction
     const result = await runTransaction(prisma, async (tx) => {

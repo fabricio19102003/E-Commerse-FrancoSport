@@ -4,7 +4,7 @@
  */
 
 import prisma from '../utils/prisma.js';
-import { OrderError } from '../services/order.service.js';
+import { OrderError, assertNoDuplicateLines } from '../services/order.service.js';
 import { previewCoupon } from '../services/coupon.service.js';
 
 /**
@@ -30,6 +30,7 @@ export const validateCoupon = async (req, res, next) => {
     if (items.length === 0) {
       throw new OrderError('Su carrito está vacío', { code: 'EMPTY_CART' });
     }
+    assertNoDuplicateLines(items);
 
     const { coupon, subtotal, discount } = await previewCoupon(prisma, { code: req.body.code, userId, items });
 

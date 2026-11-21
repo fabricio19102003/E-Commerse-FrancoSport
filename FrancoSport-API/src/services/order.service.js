@@ -30,6 +30,23 @@ export class OrderError extends Error {
 }
 
 /**
+ * The same product/variant twice in a list of lines is rejected, not merged.
+ * Shared by order creation and coupon validation so both answer the same.
+ */
+export const assertNoDuplicateLines = (items) => {
+  const seen = new Set();
+  for (const item of items) {
+    const key = `${item.product_id}:${item.variant_id ?? ''}`;
+    if (seen.has(key)) {
+      throw new OrderError(
+        `Producto repetido en el pedido: ${item.product_id}${item.variant_id ? ` (variante ${item.variant_id})` : ''}. Combine las cantidades en una sola línea`
+      );
+    }
+    seen.add(key);
+  }
+};
+
+/**
  * Lock order for stock rows. Create, cancel and reopen all take stock in this
  * order, so concurrent transactions never wait on each other in a cycle.
  */

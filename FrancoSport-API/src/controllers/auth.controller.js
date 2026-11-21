@@ -9,6 +9,7 @@ import {
   generateToken,
   generateRefreshToken,
   verifyRefreshToken,
+  accessTokenPayload,
   refreshTokenPayload,
   isRefreshTokenCurrent,
 } from '../utils/jwt.js';
@@ -18,7 +19,6 @@ import {
   issueToken,
   consumeToken,
   revokeTokens,
-  simulateIssueToken,
 } from '../services/token.service.js';
 
 const FORGOT_PASSWORD_MESSAGE = 'Si el correo está registrado, recibirá instrucciones para restablecer su contraseña';
@@ -27,7 +27,7 @@ const FORGOT_PASSWORD_MESSAGE = 'Si el correo está registrado, recibirá instru
  * Create a verification token and email the link. Never throws: callers must not fail
  * (or leak) because the email could not be prepared.
  */
-const sendVerificationLink = async (user, { revokePrevious = false } = {}) => {
+export const sendVerificationLink = async (user, { revokePrevious = false } = {}) => {
   try {
     const token = await issueToken(user.id, TOKEN_TYPES.VERIFY_EMAIL, { revokePrevious });
     sendVerificationEmail(user, token).catch(err => console.error('Failed to send verification email:', err));
@@ -87,11 +87,7 @@ export const register = async (req, res, next) => {
     });
 
     // Generate tokens
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const token = generateToken(accessTokenPayload(user));
 
     const refreshToken = generateRefreshToken(refreshTokenPayload({ id: user.id }));
 
@@ -167,11 +163,7 @@ export const login = async (req, res, next) => {
     });
 
     // Generate token
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const token = generateToken(accessTokenPayload(user));
 
     const refreshToken = generateRefreshToken(refreshTokenPayload(user));
 
@@ -272,11 +264,7 @@ export const refreshToken = async (req, res, next) => {
     }
 
     // Generate new access token
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const token = generateToken(accessTokenPayload(user));
 
     res.json({
       success: true,
@@ -349,21 +337,26 @@ export const resendVerification = async (req, res, next) => {
  * Request a password reset email
  * POST /api/auth/forgot-password
  *
- * Known and unknown emails get the same answer and do the same work
- * (token generation and one query); the email transport is not awaited.
+ * Known and unknown emails get the same answer after the same single query. For a known
+ * email the token (previous links are revoked) and the email are created after the answer
+ * is sent, so the response time never tells the two apart.
  */
 export const forgotPassword = async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { email: req.body.email } });
 
-    if (user && user.is_active) {
-      const token = await issueToken(user.id, TOKEN_TYPES.RESET_PASSWORD);
-      sendPasswordResetEmail(user, token).catch(err => console.error('Failed to send password reset email:', err));
-    } else {
-      await simulateIssueToken();
-    }
-
     res.json({ success: true, message: FORGOT_PASSWORD_MESSAGE });
+
+    if (user && user.is_active) {
+      setImmediate(async () => {
+        try {
+          const token = await issueToken(user.id, TOKEN_TYPES.RESET_PASSWORD, { revokePrevious: true });
+          await sendPasswordResetEmail(user, token);
+        } catch (err) {
+          console.error('Failed to send password reset email:', err);
+        }
+      });
+    }
   } catch (error) {
     next(error);
   }

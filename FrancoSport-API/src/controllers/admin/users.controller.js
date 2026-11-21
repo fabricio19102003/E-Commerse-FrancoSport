@@ -7,6 +7,7 @@
 
 import bcrypt from 'bcryptjs';
 import prisma from '../../utils/prisma.js';
+import { sendVerificationLink } from '../auth.controller.js';
 
 /**
  * Get all users (admin view)
@@ -207,6 +208,12 @@ export const updateUser = async (req, res, next) => {
       }
     }
 
+    // A new address has not been verified, whatever the request says about email_verified
+    const emailChanged = Boolean(newEmail) && newEmail !== existingUser.email;
+    if (emailChanged) {
+      updateFields.email_verified = false;
+    }
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
@@ -228,6 +235,11 @@ export const updateUser = async (req, res, next) => {
         updated_at: true,
       },
     });
+
+    // Verification link to the new address (older links are revoked)
+    if (emailChanged) {
+      await sendVerificationLink(updatedUser, { revokePrevious: true });
+    }
 
     res.json({
       success: true,

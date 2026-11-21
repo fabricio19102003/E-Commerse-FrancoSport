@@ -112,6 +112,61 @@ describe('POST /api/coupons/validate (S5)', () => {
     expectRejected(res, 'EMPTY_CART', 'Su carrito está vacío');
   });
 
+  it('rejects a repeated product line like order creation does, taking no use', async () => {
+    const ctx = await createContext({ product: { stock: 10 } });
+    const variant = await createVariant(ctx.product.id, { stock: 5 });
+    const coupon = await createCoupon();
+    const before = await timesUsed(coupon.id);
+
+    const repeated = await validate(ctx.token, {
+      code: coupon.code,
+      items: [
+        { product_id: ctx.product.id, quantity: 1 },
+        { product_id: ctx.product.id, quantity: 2 },
+      ],
+    });
+    const repeatedVariant = await validate(ctx.token, {
+      code: coupon.code,
+      items: [
+        { product_id: ctx.product.id, variant_id: variant.id, quantity: 1 },
+        { product_id: ctx.product.id, variant_id: variant.id, quantity: 1 },
+      ],
+    });
+    const order = await createOrderViaApi(ctx, {
+      items: [
+        { product_id: ctx.product.id, quantity: 1 },
+        { product_id: ctx.product.id, quantity: 2 },
+      ],
+      coupon_code: coupon.code,
+    });
+
+    const message = `Producto repetido en el pedido: ${ctx.product.id}. Combine las cantidades en una sola línea`;
+    expectRejected(repeated, 'INVALID_ORDER', message);
+    expectRejected(
+      repeatedVariant,
+      'INVALID_ORDER',
+      `Producto repetido en el pedido: ${ctx.product.id} (variante ${variant.id}). Combine las cantidades en una sola línea`
+    );
+    expect(order.body.error.message).toBe(message);
+    expect(await timesUsed(coupon.id)).toBe(before);
+  });
+
+  it('allows a product and one of its variants as different lines', async () => {
+    const ctx = await createContext({ product: { stock: 10 } });
+    const variant = await createVariant(ctx.product.id, { stock: 5 });
+    const coupon = await createCoupon();
+
+    const res = await validate(ctx.token, {
+      code: coupon.code,
+      items: [
+        { product_id: ctx.product.id, quantity: 1 },
+        { product_id: ctx.product.id, variant_id: variant.id, quantity: 1 },
+      ],
+    });
+
+    expect(res.status).toBe(200);
+  });
+
   it('applies the same server rules and messages as order creation', async () => {
     const ctx = await createContext();
     const items = [{ product_id: ctx.product.id, quantity: 2 }];

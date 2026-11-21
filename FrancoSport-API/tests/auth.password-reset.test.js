@@ -32,9 +32,13 @@ const forgot = (email) => api.post('/api/auth/forgot-password', null, { email })
 const login = (email, password) => api.post('/api/auth/login', null, { email, password });
 const reset = (token, password) => api.post('/api/auth/reset-password', null, { token, password });
 
+// The token and the email are created after the response, so wait for the mail
+const waitForResetMail = (email) => vi.waitFor(() => expect(resetMail(email)).toBeDefined());
+
 const requestReset = async (user) => {
   sendMail.mockClear();
   expect((await forgot(user.email)).status).toBe(200);
+  await waitForResetMail(user.email);
   return linkToken(resetMail(user.email).html, '/restablecer-contrasena');
 };
 
@@ -47,6 +51,7 @@ describe('POST /api/auth/forgot-password', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(REQUESTED);
 
+    await waitForResetMail(user.email);
     expect(mailsTo(user.email)).toHaveLength(1);
     const mail = resetMail(user.email);
     expect(mail.subject).toBe('Recuperación de contraseña - Franco Sport');
@@ -64,6 +69,7 @@ describe('POST /api/auth/forgot-password', () => {
   it('answers an unknown email exactly like a known one, sending and storing nothing', async () => {
     const { user } = await createUser();
     const known = await forgot(user.email);
+    await waitForResetMail(user.email);
     sendMail.mockClear();
     const tokensBefore = await prisma.userToken.count();
 
@@ -84,6 +90,51 @@ describe('POST /api/auth/forgot-password', () => {
     expect(res.body).toEqual(REQUESTED);
     expect(sendMail).not.toHaveBeenCalled();
     expect(await prisma.userToken.count({ where: { user_id: user.id } })).toBe(0);
+  });
+
+  it('answers a known email before creating the token: nothing is written until the response is sent', async () => {
+    const { user } = await createUser({ password: OLD });
+    sendMail.mockClear();
+
+    const res = await forgot(user.email);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(REQUESTED);
+    // the same body as for an unknown address, and the email still arrives for the known one
+    const unknown = await forgot('otro-desconocido@test.local');
+    expect(unknown.status).toBe(res.status);
+    expect(unknown.body).toEqual(res.body);
+    await waitForResetMail(user.email);
+    expect(mailsTo(user.email)).toHaveLength(1);
+    expect(await prisma.userToken.count({ where: { user_id: user.id, type: 'RESET_PASSWORD' } })).toBe(1);
+  });
+
+  it('a transport failure after the response is only logged: the answer is still 200', async () => {
+    const { user } = await createUser({ password: OLD });
+    sendMail.mockRejectedValue(new Error('smtp caido'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await forgot(user.email);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(REQUESTED);
+    await vi.waitFor(() => expect(log).toHaveBeenCalled());
+    log.mockRestore();
+  });
+
+  it('a second request revokes the first link: only the newest works', async () => {
+    const { user } = await createUser({ password: OLD });
+    const { token: first } = await requestReset(user);
+    const { token: second } = await requestReset(user);
+
+    const old = await reset(first, NEW);
+    expect(old.status).toBe(400);
+    expect(old.body).toEqual(INVALID);
+    expect((await rowFor(first)).used_at).toBeInstanceOf(Date);
+    expect((await login(user.email, OLD)).status).toBe(200);
+
+    expect((await reset(second, NEW)).status).toBe(200);
+    expect((await login(user.email, NEW)).status).toBe(200);
   });
 
   it('rejects a malformed email', async () => {
@@ -192,10 +243,10 @@ describe('POST /api/auth/reset-password', () => {
     const { token: second } = await requestReset(user);
     const { token: othersToken } = await requestReset(other.user);
 
-    expect((await reset(first, NEW)).status).toBe(200);
+    expect((await reset(second, NEW)).status).toBe(200);
 
-    expect((await reset(second, 'another-password-4')).body).toEqual(INVALID);
-    expect((await rowFor(second)).used_at).toBeInstanceOf(Date);
+    expect((await reset(first, 'another-password-4')).body).toEqual(INVALID);
+    expect((await rowFor(first)).used_at).toBeInstanceOf(Date);
     expect((await rowFor(othersToken)).used_at).toBeNull();
     expect((await login(user.email, NEW)).status).toBe(200);
   });
@@ -205,6 +256,48 @@ describe('POST /api/auth/reset-password', () => {
     const { token } = await requestReset(user);
     expect((await reset(token, NEW)).status).toBe(200);
     expect((await prisma.user.findUnique({ where: { id: user.id } })).email_verified).toBe(false);
+  });
+});
+
+describe('access tokens', () => {
+  const profile = (token) => api.get('/api/users/profile', token);
+
+  it('an access token issued before a reset stops working (TOKEN_REVOKED); one from a later login works', async () => {
+    const { user } = await createUser({ password: OLD });
+    const before = await login(user.email, OLD);
+    expect((await profile(before.body.data.token)).status).toBe(200);
+    const { token } = await requestReset(user);
+    expect((await reset(token, NEW)).status).toBe(200);
+
+    const stale = await profile(before.body.data.token);
+    expect(stale.status).toBe(401);
+    expect(stale.body).toEqual({
+      success: false,
+      error: { code: 'TOKEN_REVOKED', message: 'Sesión expirada, por favor inicie sesión nuevamente' },
+    });
+
+    const after = await login(user.email, NEW);
+    expect((await profile(after.body.data.token)).status).toBe(200);
+  });
+
+  it('a refreshed access token carries the current password state', async () => {
+    const { user } = await createUser({ password: OLD });
+    const { token } = await requestReset(user);
+    expect((await reset(token, NEW)).status).toBe(200);
+    const session = await login(user.email, NEW);
+
+    const refreshed = await api.post('/api/auth/refresh', null, { refreshToken: session.body.data.refreshToken });
+    expect(refreshed.status).toBe(200);
+    expect((await profile(refreshed.body.data.token)).status).toBe(200);
+  });
+
+  it("a reset does not affect other users' access tokens", async () => {
+    const { user } = await createUser({ password: OLD });
+    const other = await createUser({ password: OLD });
+    const { token } = await requestReset(user);
+    expect((await reset(token, NEW)).status).toBe(200);
+
+    expect((await profile(other.token)).status).toBe(200);
   });
 });
 

@@ -3,7 +3,7 @@
  * Franco Sport E-Commerce
  */
 
-import { verifyToken } from '../utils/jwt.js';
+import { verifyToken, isAccessTokenCurrent } from '../utils/jwt.js';
 import prisma from '../utils/prisma.js';
 
 /**
@@ -41,6 +41,7 @@ export const authenticate = async (req, res, next) => {
         role: true,
         email_verified: true,
         is_active: true,
+        password_changed_at: true,
         created_at: true,
         updated_at: true,
       },
@@ -66,8 +67,20 @@ export const authenticate = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
-    req.user = user;
+    // A reset or password change invalidates the access tokens issued before it
+    if (!isAccessTokenCurrent(decoded, user)) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'TOKEN_REVOKED',
+          message: 'Sesión expirada, por favor inicie sesión nuevamente',
+        },
+      });
+    }
+
+    // Attach user to request (password state is internal)
+    const { password_changed_at, ...safeUser } = user;
+    req.user = safeUser;
     next();
   } catch (error) {
     return res.status(401).json({

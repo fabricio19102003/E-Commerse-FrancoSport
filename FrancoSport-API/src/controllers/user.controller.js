@@ -5,6 +5,7 @@
 
 import bcrypt from 'bcryptjs';
 import prisma from '../utils/prisma.js';
+import { generateToken, generateRefreshToken, accessTokenPayload, refreshTokenPayload } from '../utils/jwt.js';
 
 /**
  * Get user profile
@@ -106,15 +107,20 @@ export const changePassword = async (req, res, next) => {
     // Hash new password
     const password_hash = await bcrypt.hash(new_password, 12);
 
-    // Update password
-    await prisma.user.update({
+    // Update password; moving password_changed_at ends every other session
+    const updated = await prisma.user.update({
       where: { id: req.user.id },
       data: { password_hash, password_changed_at: new Date() },
     });
 
+    // The session that made the change continues with a fresh pair
     res.json({
       success: true,
       message: 'Contraseña actualizada exitosamente',
+      data: {
+        token: generateToken(accessTokenPayload(updated)),
+        refreshToken: generateRefreshToken(refreshTokenPayload(updated)),
+      },
     });
   } catch (error) {
     next(error);
