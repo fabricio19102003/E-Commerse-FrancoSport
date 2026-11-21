@@ -4,8 +4,9 @@ import { orderStatusLabel } from '@/constants/labels';
 import { Link } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
-import { User, Package, LogOut, Save, Loader2, Award, Bell } from 'lucide-react';
+import { User, Package, LogOut, Save, Loader2, Award, Bell, KeyRound } from 'lucide-react';
 import { useAuthStore } from '@/store';
+import { ChangePasswordForm } from '@/components/profile/ChangePasswordForm';
 import { updateProfile } from '@/api/users.service';
 import { getOrders } from '@/api/orders.service';
 import { loyaltyService } from '@/api/loyalty.service';
@@ -17,10 +18,12 @@ import toast from 'react-hot-toast';
 
 import { useSearchParams } from 'react-router-dom';
 
+type ProfileTab = 'profile' | 'orders' | 'points' | 'password';
+
 const Profile: React.FC = () => {
   const { user, logout, setUser } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'points'>('profile');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
@@ -33,12 +36,14 @@ const Profile: React.FC = () => {
       setActiveTab('orders');
     } else if (tab === 'points') {
       setActiveTab('points');
+    } else if (tab === 'password') {
+      setActiveTab('password');
     } else {
       setActiveTab('profile');
     }
   }, [searchParams]);
 
-  const handleTabChange = (tab: 'profile' | 'orders' | 'points') => {
+  const handleTabChange = (tab: ProfileTab) => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -157,7 +162,7 @@ const Profile: React.FC = () => {
               <nav className="space-y-1">
                 <button
                   onClick={() => handleTabChange('profile')}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
+                  className={`w-full min-h-[44px] flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
                     activeTab === 'profile' 
                       ? 'bg-primary text-white' 
                       : 'text-text-secondary hover:bg-surface-light'
@@ -167,7 +172,7 @@ const Profile: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleTabChange('orders')}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
+                  className={`w-full min-h-[44px] flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
                     activeTab === 'orders' 
                       ? 'bg-primary text-white' 
                       : 'text-text-secondary hover:bg-surface-light'
@@ -177,7 +182,7 @@ const Profile: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleTabChange('points')}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
+                  className={`w-full min-h-[44px] flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
                     activeTab === 'points' 
                       ? 'bg-primary text-white' 
                       : 'text-text-secondary hover:bg-surface-light'
@@ -186,8 +191,18 @@ const Profile: React.FC = () => {
                   <Award className="w-4 h-4" /> Mis Puntos
                 </button>
                 <button
+                  onClick={() => handleTabChange('password')}
+                  className={`w-full min-h-[44px] flex items-center gap-3 px-4 py-2 rounded-md transition-colors ${
+                    activeTab === 'password' 
+                      ? 'bg-primary text-white' 
+                      : 'text-text-secondary hover:bg-surface-light'
+                  }`}
+                >
+                  <KeyRound className="w-4 h-4" /> Cambiar contraseña
+                </button>
+                <button
                   onClick={logout}
-                  className="w-full flex items-center gap-3 px-4 py-2 rounded-md text-red-500 hover:bg-red-50 transition-colors mt-4"
+                  className="w-full min-h-[44px] flex items-center gap-3 px-4 py-2 rounded-md text-red-500 hover:bg-red-50 transition-colors mt-4"
                 >
                   <LogOut className="w-4 h-4" /> Cerrar Sesión
                 </button>
@@ -237,6 +252,13 @@ const Profile: React.FC = () => {
                     </Button>
                   </div>
                 </form>
+              </Card>
+            )}
+
+            {activeTab === 'password' && (
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold mb-6">Cambiar contraseña</h2>
+                <ChangePasswordForm />
               </Card>
             )}
 
