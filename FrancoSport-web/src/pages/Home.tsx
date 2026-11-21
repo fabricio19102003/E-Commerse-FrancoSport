@@ -519,7 +519,7 @@ const Home: React.FC = () => {
                 </div>
                 <h3 className="text-xl font-semibold">Compra Segura</h3>
                 <p className="text-text-secondary">
-                  Pago 100% seguro con Stripe. Tu información está protegida en todo momento.
+                  Paga como prefieras: QR, transferencia bancaria o contra entrega. Tu información está protegida en todo momento.
                 </p>
               </CardContent>
             </Card>

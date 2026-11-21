@@ -68,6 +68,9 @@ npm run db:push
 
 Este comando creará todas las tablas en la base de datos.
 
+> El proyecto no usa migraciones: el esquema (`prisma/schema.prisma`) se aplica con `prisma db push`.
+> Al actualizar desde una versión anterior vuelve a ejecutar `npm run db:push` (añade la tabla `user_tokens` y la columna `users.password_changed_at`, sin borrar datos) y después `npx prisma generate` si el cliente no se regenera solo.
+
 ### 5. Poblar base de datos (Seed)
 
 ```bash
@@ -120,8 +123,21 @@ GET /api/health
 ```http
 POST /api/auth/register       # Registrar usuario
 POST /api/auth/login          # Iniciar sesión
-GET  /api/auth/me             # Obtener usuario actual (requiere auth)
+GET  /api/auth/me             # Obtener usuario actual, incluye email_verified (requiere auth)
+POST /api/auth/refresh        # Renovar el token de acceso
+POST /api/auth/verify-email         # { token } Verificar el correo con el enlace recibido
+POST /api/auth/resend-verification  # Reenviar el correo de verificación (requiere auth)
+POST /api/auth/forgot-password      # { email } Solicitar el enlace de recuperación
+POST /api/auth/reset-password       # { token, password } Fijar una nueva contraseña
 ```
+
+#### Verificación de correo y recuperación de contraseña
+
+- Los tokens son aleatorios (`crypto.randomBytes`), de un solo uso y solo se guarda su hash SHA-256 en `user_tokens` (con `expires_at` y `used_at`). Verificación: 24 h. Recuperación: 60 min.
+- El registro envía el correo de verificación. Crear un pedido exige correo verificado (`403 EMAIL_NOT_VERIFIED`; el middleware `requireVerifiedEmail` de `src/middleware/auth.js`; los administradores quedan exentos). Los correos de marketing siguen yendo solo a clientes verificados.
+- `forgot-password` responde igual (200) exista o no el correo, tras la misma consulta; el token y el correo de un correo registrado se crean después de responder. Un nuevo pedido invalida los enlaces anteriores.
+- `reset-password` aplica las mismas reglas de contraseña que el registro, invalida el token y los demás tokens de recuperación del usuario, y guarda `users.password_changed_at`. Los refresh tokens llevan esa fecha: tras un cambio de contraseña los emitidos antes dejan de renovar el acceso (`401 INVALID_REFRESH_TOKEN`). Los tokens de acceso llevan la misma marca (`pwd`): tras un restablecimiento o cambio de contraseña los emitidos antes responden `401 TOKEN_REVOKED`.
+- Los enlaces usan `FRONTEND_URL`: `/verificar-correo?token=…` y `/restablecer-contrasena?token=…`. Sin configuración SMTP los correos solo se registran en consola (`[MOCK EMAIL]`); las pruebas simulan únicamente el transporte y nunca envían correo real.
 
 ### Productos
 
@@ -152,8 +168,68 @@ POST /api/orders/:orderNumber/cancel # Cancelar pedido (requiere auth)
 ```
 
 Al crear un pedido el cliente envía `items` (`product_id`, `variant_id` opcional, `quantity` entero de 1 a 99),
-`shipping_address_id`, `shipping_method_id`, `payment_method` y, opcionalmente, `redeem_points` (entero ≥ 0).
-Los precios, el costo de envío y el total se calculan siempre en el servidor.
+`shipping_address_id`, `shipping_method_id`, `payment_method` y, opcionalmente, `redeem_points` (entero ≥ 0) o
+`coupon_code` (texto, sin distinguir mayúsculas): un pedido usa cupón o puntos, no ambos.
+Los precios, el costo de envío, el descuento del cupón y el total se calculan siempre en el servidor; el descuento
+se aplica al subtotal (nunca al envío) y queda guardado en el pedido (`coupon_id`, `discount_amount`).
+Cancelar el pedido libera el uso del cupón; reabrirlo lo toma de nuevo o falla si el cupón ya no es válido.
+
+### Cupones
+
+```http
+POST /api/coupons/validate          # Calcular el descuento de un cupón (requiere auth)
+```
+
+Body: `{ "code": "VERANO10", "items": [{ "product_id": 1, "variant_id": null, "quantity": 2 }] }`. `items` es opcional
+(mismo formato que al crear un pedido); sin `items` se usa el carrito del cliente. No reserva nada: el descuento
+definitivo se calcula al crear el pedido. Máx. 30 validaciones por usuario cada 15 minutos.
+
+Respuesta `200`:
+
+```json
+{ "success": true, "data": { "code": "VERANO10", "description": "10% en verano", "discount_type": "PERCENTAGE", "subtotal": "40.00", "discount_amount": "4.00" } }
+```
+
+Errores `400` (`error.code` y `error.message`):
+
+| Código | Mensaje |
+| --- | --- |
+| `VALIDATION_ERROR` | `Ingrese el código del cupón`, `Debe incluir entre 1 y 50 productos`, `ID de producto inválido`, `La cantidad debe ser un número entero entre 1 y 99` |
+| `EMPTY_CART` | `Su carrito está vacío` |
+| `COUPON_INVALID` | `Cupón no válido o vencido` (no existe, inactivo o fuera de su vigencia) · `Este tipo de cupón todavía no está disponible en el checkout` |
+| `COUPON_MIN_PURCHASE` | `El cupón requiere una compra mínima de Bs. 50.00` |
+| `COUPON_LIMIT_REACHED` | `Este cupón ya alcanzó su límite de usos` |
+| `COUPON_USER_LIMIT` | `Ya usó este cupón el máximo de veces permitido` |
+
+`POST /api/orders` con `coupon_code` y `redeem_points` mayor a 0 a la vez responde `400 COUPON_POINTS_CONFLICT`: `Puede usar un cupón o sus puntos, no ambos`.
+
+### Cupones (administración)
+
+```http
+GET    /api/admin/coupons                   # Listar (search, is_active, page, limit)
+GET    /api/admin/coupons/:id               # Obtener uno
+POST   /api/admin/coupons                   # Crear
+PUT    /api/admin/coupons/:id               # Reemplazar los campos editables
+PATCH  /api/admin/coupons/:id/toggle-status # Activar o desactivar
+DELETE /api/admin/coupons/:id               # Eliminar (se desactiva si ya fue usado o está en un pedido)
+```
+
+Solo administradores. Campos de `POST` y `PUT` (los mismos de la tabla `coupons`):
+
+| Campo | Regla |
+| --- | --- |
+| `code` | Obligatorio, 3 a 50 letras o números; se guarda en mayúsculas y es único (repetido: `409 DUPLICATE_CODE`) |
+| `description` | Obligatoria, hasta 500 caracteres |
+| `discount_type` | `PERCENTAGE` o `FIXED_AMOUNT` (el envío gratis aún no se aplica en el checkout) |
+| `discount_value` | Mayor a 0, hasta 2 decimales; máximo 100 si es `PERCENTAGE`; en Bs. si es `FIXED_AMOUNT` |
+| `minimum_purchase_amount` | Opcional, ≥ 0, en Bs., sobre el subtotal |
+| `maximum_discount_amount` | Opcional, > 0, en Bs. (tope de un `PERCENTAGE`) |
+| `usage_limit_total` | Opcional, entero ≥ 1, usos totales (`times_used` los cuenta; no se edita) |
+| `usage_limit_per_user` | Opcional, entero ≥ 1, pedidos no cancelados de un mismo cliente |
+| `starts_at`, `expires_at` | Fechas ISO 8601; `expires_at` debe ser posterior a `starts_at` |
+| `is_active` | Opcional, booleano (por defecto `true`) |
+
+Los campos opcionales omitidos o en `null` significan sin límite.
 
 ### Métodos de envío
 
@@ -166,7 +242,7 @@ GET /api/shipping-methods           # Métodos activos en zonas activas (públic
 ```http
 GET    /api/users/profile           # Obtener perfil (requiere auth)
 PUT    /api/users/profile           # Actualizar perfil (requiere auth)
-PUT    /api/users/password          # Cambiar contraseña (requiere auth)
+PUT    /api/users/password          # Cambiar contraseña (requiere auth); cierra las demás sesiones y devuelve data.token y data.refreshToken nuevos
 GET    /api/users/addresses         # Listar direcciones (requiere auth)
 POST   /api/users/addresses         # Crear dirección (requiere auth)
 PUT    /api/users/addresses/:id     # Actualizar dirección (requiere auth)
@@ -279,14 +355,18 @@ Las pruebas nunca llaman a Cloudinary: se simula solo el adaptador `src/services
 
 ## 🚦 Límites de peticiones
 
-Los límites se cuentan en memoria por proceso y se reinician al cambiar de ventana (15 minutos). Al excederlos la API responde `429` con un mensaje en castellano. Se desactivan con `NODE_ENV=test`.
+Los límites se cuentan en memoria por proceso y se reinician al cambiar de ventana (15 minutos, o 1 hora donde se indica). Al excederlos la API responde `429` con un mensaje en castellano. Se desactivan con `NODE_ENV=test`.
 
-| Ruta | Límite (cada 15 min) | Clave |
+| Ruta | Límite (cada 15 min salvo indicación) | Clave |
 | --- | --- | --- |
 | Toda la API | 600 | IP |
 | `POST /api/auth/login`, `/register`, `/refresh` | 10 por ruta | IP |
 | `POST /api/auth/login`, `/register` | 10 por ruta | correo (sin distinguir mayúsculas) |
 | `POST /api/orders` | 20 | usuario |
+| `POST /api/coupons/validate` | 30 | usuario |
+| `POST /api/auth/verify-email`, `/reset-password` | 10 por ruta | IP |
+| `POST /api/auth/resend-verification` | 3 por hora | usuario |
+| `POST /api/auth/forgot-password` | 5 por hora | IP y correo (cada uno) |
 | `POST /api/payment/proof/:orderId` | 10 | usuario (siempre activo) |
 
 ### `TRUST_PROXY`
@@ -317,7 +397,7 @@ Si encuentras errores:
 
 ## 📝 Próximas Funcionalidades
 
-- [ ] Checkout y procesamiento de pagos con Stripe
+- [x] Checkout con QR, transferencia y contra entrega; cupón o puntos
 - [ ] Sistema de reviews y ratings
 - [ ] Wishlist
 - [ ] Panel administrativo (CRUD completo)

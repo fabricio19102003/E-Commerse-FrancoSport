@@ -60,7 +60,7 @@ const Register: React.FC = () => {
       });
 
       logSignUp('email');
-      toast.success('¡Cuenta creada exitosamente!');
+      toast.success('¡Cuenta creada! Le enviamos un correo para verificar su dirección.');
       navigate(ROUTES.HOME);
     } catch (err) {
       toast.error(error || 'Error al crear la cuenta');

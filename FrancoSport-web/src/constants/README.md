@@ -33,7 +33,6 @@ export const ROUTES = {
 ### `config.ts`
 ```typescript
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-export const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 
 export const APP_CONFIG = {
   name: 'Franco Sport',

@@ -38,6 +38,35 @@ export const getMe = async (): Promise<User> => {
 };
 
 /**
+ * Verify email with the token from the emailed link
+ */
+export const verifyEmail = async (token: string): Promise<void> => {
+  await api.post('/auth/verify-email', { token });
+};
+
+/**
+ * Send a new verification email to the logged-in user
+ */
+export const resendVerification = async (): Promise<string> => {
+  const response = await api.post<{ success: boolean; message: string }>('/auth/resend-verification');
+  return response.data.message;
+};
+
+/**
+ * Request the password reset email (the API answers the same for any email)
+ */
+export const forgotPassword = async (email: string): Promise<void> => {
+  await api.post('/auth/forgot-password', { email });
+};
+
+/**
+ * Set a new password with the token from the emailed link
+ */
+export const resetPassword = async (token: string, password: string): Promise<void> => {
+  await api.post('/auth/reset-password', { token, password });
+};
+
+/**
  * Logout (client-side only)
  */
 export const logout = (): void => {

@@ -50,7 +50,7 @@ npm run dev                   # http://localhost:5173
 | MySQL | 8.0+ |
 | npm | 9+ (ships with Node 18) |
 
-Optional: Stripe test keys, Cloudinary account, Gmail app password for email features.
+Optional: Cloudinary account, Gmail app password for email features.
 
 ---
 
@@ -66,8 +66,6 @@ Optional: Stripe test keys, Cloudinary account, Gmail app password for email fea
 | `JWT_SECRET` | Token signing secret — **change in production** |
 | `JWT_EXPIRES_IN` | Token TTL (default `7d`) |
 | `JWT_REFRESH_SECRET` | **Required** — server fails fast without it |
-| `STRIPE_SECRET_KEY` | Stripe test/live secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
 | `FRONTEND_URL` | CORS allowed origin (default `http://localhost:5173`) |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` | SMTP for Nodemailer |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Image hosting |
@@ -77,7 +75,6 @@ Optional: Stripe test keys, Cloudinary account, Gmail app password for email fea
 | Variable | Purpose |
 |----------|---------|
 | `VITE_API_URL` | API base URL (default `http://localhost:3000/api/v1`) |
-| `VITE_STRIPE_PUBLIC_KEY` | Stripe publishable key |
 | `VITE_APP_NAME` | Display name |
 | `VITE_APP_SLOGAN` | Display slogan |
 
@@ -161,7 +158,7 @@ FrancoSport-web/src/
 
 | Integration | Purpose |
 |-------------|---------|
-| Stripe | Payment processing (API + React Stripe.js) |
+| Manual payments | QR transfer, bank transfer and cash on delivery (the store confirms the payment) |
 | Cloudinary | Product image upload and hosting |
 | Socket.IO | Real-time notifications |
 | Nodemailer | Transactional email |
@@ -228,7 +225,7 @@ For reviewers evaluating this project:
 - [ ] `JWT_REFRESH_SECRET` is set (server will refuse to start without it)
 - [ ] Database is seeded and API responds at `/api/health`
 - [ ] Frontend connects to API and renders product listing
-- [ ] Stripe test mode works for checkout flow
+- [ ] Checkout works with QR, bank transfer and cash on delivery, and a valid coupon (or points, not both) is applied
 - [ ] Admin panel accessible at `/admin` with admin credentials
 - [ ] Order cancellation restores stock (transactional)
 - [ ] Upload/delete routes require admin role

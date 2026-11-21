@@ -2,6 +2,8 @@ import { transporter } from '../config/email.js';
 import * as templates from '../utils/emailTemplates.js';
 import prisma from '../utils/prisma.js';
 
+const frontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+
 export const sendEmail = async (to, subject, html) => {
   if (!transporter) {
     console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}`);
@@ -31,14 +33,14 @@ export const sendWelcomeEmail = async (user) => {
 };
 
 export const sendVerificationEmail = async (user, token) => {
-  const link = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+  const link = `${frontendUrl()}/verificar-correo?token=${token}`;
   const subject = 'Verifica tu correo electrónico - Franco Sport';
   const html = templates.verificationTemplate(user.first_name, link);
   return sendEmail(user.email, subject, html);
 };
 
 export const sendPasswordResetEmail = async (user, token) => {
-  const link = `${process.env.FRONTEND_URL}/restablecer-contrasena/${token}`;
+  const link = `${frontendUrl()}/restablecer-contrasena?token=${token}`;
   const subject = 'Recuperación de contraseña - Franco Sport';
   const html = templates.passwordResetTemplate(user.first_name, link);
   return sendEmail(user.email, subject, html);

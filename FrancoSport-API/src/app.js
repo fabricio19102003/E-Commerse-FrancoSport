@@ -16,6 +16,7 @@ import { createAuthRoutes } from './routes/auth.routes.js';
 import productRoutes from './routes/product.routes.js';
 import cartRoutes from './routes/cart.routes.js';
 import { createOrderRoutes } from './routes/order.routes.js';
+import { createCouponRoutes } from './routes/coupon.routes.js';
 import userRoutes from './routes/user.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 
@@ -129,6 +130,7 @@ export const createApp = ({ rateLimits = {}, trustProxy = parseTrustProxy(proces
   app.use('/api/products', productRoutes);
   app.use('/api/cart', cartRoutes);
   app.use('/api/orders', createOrderRoutes(limiters));
+  app.use('/api/coupons', createCouponRoutes(limiters));
   app.use('/api/users', userRoutes);
   app.use('/api/promotions', promotionRoutes);
   app.use('/api/payment', paymentRoutes);

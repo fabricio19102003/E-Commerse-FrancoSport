@@ -1,5 +1,5 @@
 import express from 'express';
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 import { authenticate, requireAdmin } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 import {
@@ -16,29 +16,66 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(authenticate, requireAdmin);
 
-// Validation rules
+// Decimal(10,2) columns hold up to 99999999.99
+const MAX_AMOUNT = 99999999.99;
+const isMoney = (value, { min = 0, exclusiveMin = false } = {}) => {
+  const amount = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+  if (typeof value === 'boolean' || !Number.isFinite(amount) || amount > MAX_AMOUNT) return false;
+  return exclusiveMin ? amount > min : amount >= min;
+};
+const hasAtMostTwoDecimals = (value) => /^-?\d+(\.\d{1,2})?$/.test(String(value).trim());
+const isOptional = { values: 'null' };
+
+// Same fields as the Prisma Coupon model; PUT replaces them, so both share the rules
 const couponValidation = [
-  body('code').notEmpty().withMessage('El código es requerido')
-    .isLength({ min: 3 }).withMessage('El código debe tener al menos 3 caracteres')
-    .matches(/^[a-zA-Z0-9]+$/).withMessage('El código solo puede contener letras y números'),
-  body('discount_type').isIn(['PERCENTAGE', 'FIXED']).withMessage('Tipo de descuento inválido'),
-  body('discount_value').isFloat({ min: 0 }).withMessage('El valor del descuento debe ser mayor a 0'),
-  body('start_date').isISO8601().withMessage('Fecha de inicio inválida'),
-  body('end_date').isISO8601().withMessage('Fecha de fin inválida')
+  body('code')
+    .isString().withMessage('El código es requerido').bail()
+    .trim()
+    .notEmpty().withMessage('El código es requerido').bail()
+    .isLength({ min: 3, max: 50 }).withMessage('El código debe tener entre 3 y 50 caracteres')
+    .matches(/^[a-zA-Z0-9]+$/).withMessage('El código solo puede contener letras y números')
+    .customSanitizer((value) => value.toUpperCase()),
+  body('description')
+    .isString().withMessage('La descripción es requerida').bail()
+    .trim()
+    .notEmpty().withMessage('La descripción es requerida').bail()
+    .isLength({ max: 500 }).withMessage('La descripción no puede superar los 500 caracteres'),
+  body('discount_type').isIn(['PERCENTAGE', 'FIXED_AMOUNT']).withMessage('Tipo de descuento inválido'),
+  body('discount_value')
+    .custom((value) => isMoney(value, { exclusiveMin: true })).withMessage('El valor del descuento debe ser mayor a 0').bail()
+    .custom(hasAtMostTwoDecimals).withMessage('El valor del descuento admite hasta 2 decimales')
+    .custom((value, { req }) => req.body.discount_type !== 'PERCENTAGE' || Number(value) <= 100)
+    .withMessage('El porcentaje de descuento no puede ser mayor a 100'),
+  body('minimum_purchase_amount').optional(isOptional)
+    .custom((value) => isMoney(value) && hasAtMostTwoDecimals(value))
+    .withMessage('La compra mínima debe ser un monto mayor o igual a 0 (máximo 2 decimales)'),
+  body('maximum_discount_amount').optional(isOptional)
+    .custom((value) => isMoney(value, { exclusiveMin: true }) && hasAtMostTwoDecimals(value))
+    .withMessage('El descuento máximo debe ser mayor a 0 (máximo 2 decimales)'),
+  body('usage_limit_total').optional(isOptional)
+    .isInt({ min: 1, max: 2147483647 }).withMessage('El límite total de usos debe ser un número entero mayor a 0').bail()
+    .toInt(),
+  body('usage_limit_per_user').optional(isOptional)
+    .isInt({ min: 1, max: 2147483647 }).withMessage('El límite de usos por cliente debe ser un número entero mayor a 0').bail()
+    .toInt(),
+  body('starts_at').isISO8601({ strict: true }).withMessage('Fecha de inicio inválida'),
+  body('expires_at').isISO8601({ strict: true }).withMessage('Fecha de vencimiento inválida').bail()
     .custom((value, { req }) => {
-      if (new Date(value) <= new Date(req.body.start_date)) {
-        throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
-      }
-      return true;
-    }),
+      const start = new Date(req.body.starts_at);
+      return Number.isNaN(start.getTime()) || new Date(value) > start;
+    })
+    .withMessage('La fecha de vencimiento debe ser posterior a la fecha de inicio'),
+  body('is_active').optional().isBoolean({ strict: true }).withMessage('El estado debe ser verdadero o falso'),
 ];
+
+const idValidation = param('id').isInt({ min: 1 }).withMessage('ID de cupón inválido');
 
 // Routes
 router.get('/', getCoupons);
-router.get('/:id', getCoupon);
+router.get('/:id', idValidation, validate, getCoupon);
 router.post('/', couponValidation, validate, createCoupon);
-router.put('/:id', couponValidation, validate, updateCoupon);
-router.delete('/:id', deleteCoupon);
-router.patch('/:id/toggle-status', toggleCouponStatus);
+router.put('/:id', idValidation, couponValidation, validate, updateCoupon);
+router.delete('/:id', idValidation, validate, deleteCoupon);
+router.patch('/:id/toggle-status', idValidation, validate, toggleCouponStatus);
 
 export default router;

@@ -71,6 +71,7 @@ export const verificationTemplate = (name, link) => baseTemplate(`
     <div style="margin: 30px 0;">
       <a href="${link}" class="button">Verificar Email</a>
     </div>
+    <p style="font-size: 12px; color: #888;">Este enlace expirará en 24 horas.</p>
     <p style="font-size: 12px; color: #888;">Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
   </div>
 `);
@@ -82,7 +83,7 @@ export const passwordResetTemplate = (name, link) => baseTemplate(`
     <div style="margin: 30px 0;">
       <a href="${link}" class="button">Restablecer Contraseña</a>
     </div>
-    <p style="font-size: 12px; color: #888;">Este enlace expirará en 1 hora.</p>
+    <p style="font-size: 12px; color: #888;">Este enlace expirará en 60 minutos.</p>
   </div>
 `);
 

@@ -13,7 +13,9 @@ import prisma from '../../utils/prisma.js';
  */
 export const getCoupons = async (req, res, next) => {
   try {
-    const { search, is_active, page = 1, limit = 20 } = req.query;
+    const { search, is_active } = req.query;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
 
     // Build filters
     const where = {};
@@ -32,8 +34,8 @@ export const getCoupons = async (req, res, next) => {
     // Get coupons
     const coupons = await prisma.coupon.findMany({
       where,
-      skip: (parseInt(page) - 1) * parseInt(limit),
-      take: parseInt(limit),
+      skip: (page - 1) * limit,
+      take: limit,
       orderBy: { created_at: 'desc' },
     });
 
@@ -41,12 +43,12 @@ export const getCoupons = async (req, res, next) => {
       success: true,
       data: coupons,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        total_pages: Math.ceil(total / parseInt(limit)),
-        has_next: parseInt(page) < Math.ceil(total / parseInt(limit)),
-        has_prev: parseInt(page) > 1,
+        total_pages: Math.ceil(total / limit),
+        has_next: page < Math.ceil(total / limit),
+        has_prev: page > 1,
       },
     });
   } catch (error) {
@@ -85,51 +87,45 @@ export const getCoupon = async (req, res, next) => {
   }
 };
 
+const COUPON_NOT_FOUND = {
+  success: false,
+  error: { code: 'COUPON_NOT_FOUND', message: 'Cupón no encontrado' },
+};
+
+const DUPLICATE_CODE = {
+  success: false,
+  error: { code: 'DUPLICATE_CODE', message: 'El código de cupón ya existe' },
+};
+
+const isDuplicateCode = (error) => error?.code === 'P2002';
+
+// The request was validated (and the code uppercased) by the route; absent or null limits mean none
+const couponData = (body) => ({
+  code: body.code,
+  description: body.description,
+  discount_type: body.discount_type,
+  discount_value: body.discount_value,
+  minimum_purchase_amount: body.minimum_purchase_amount ?? null,
+  maximum_discount_amount: body.maximum_discount_amount ?? null,
+  usage_limit_total: body.usage_limit_total ?? null,
+  usage_limit_per_user: body.usage_limit_per_user ?? null,
+  starts_at: new Date(body.starts_at),
+  expires_at: new Date(body.expires_at),
+});
+
 /**
  * Create coupon
  * POST /api/admin/coupons
  */
 export const createCoupon = async (req, res, next) => {
   try {
-    const {
-      code,
-      discount_type,
-      discount_value,
-      min_purchase_amount,
-      max_discount_amount,
-      start_date,
-      end_date,
-      usage_limit,
-      is_active
-    } = req.body;
-
-    // Check if code exists
-    const existingCode = await prisma.coupon.findUnique({
-      where: { code }
-    });
-
+    const existingCode = await prisma.coupon.findUnique({ where: { code: req.body.code } });
     if (existingCode) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'DUPLICATE_CODE',
-          message: 'El código de cupón ya existe',
-        },
-      });
+      return res.status(409).json(DUPLICATE_CODE);
     }
 
     const coupon = await prisma.coupon.create({
-      data: {
-        code: code.toUpperCase(),
-        discount_type,
-        discount_value: parseFloat(discount_value),
-        min_purchase_amount: min_purchase_amount ? parseFloat(min_purchase_amount) : null,
-        max_discount_amount: max_discount_amount ? parseFloat(max_discount_amount) : null,
-        start_date: new Date(start_date),
-        end_date: new Date(end_date),
-        usage_limit: usage_limit ? parseInt(usage_limit) : null,
-        is_active: is_active === true
-      }
+      data: { ...couponData(req.body), is_active: req.body.is_active ?? true },
     });
 
     res.status(201).json({
@@ -138,74 +134,34 @@ export const createCoupon = async (req, res, next) => {
       message: 'Cupón creado exitosamente',
     });
   } catch (error) {
+    if (isDuplicateCode(error)) return res.status(409).json(DUPLICATE_CODE);
     next(error);
   }
 };
 
 /**
- * Update coupon
+ * Update coupon (replaces the editable fields; times_used is never touched)
  * PUT /api/admin/coupons/:id
  */
 export const updateCoupon = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const {
-      code,
-      discount_type,
-      discount_value,
-      min_purchase_amount,
-      max_discount_amount,
-      start_date,
-      end_date,
-      usage_limit,
-      is_active
-    } = req.body;
+    const id = parseInt(req.params.id);
 
-    // Check if coupon exists
-    const existingCoupon = await prisma.coupon.findUnique({
-      where: { id: parseInt(id) }
-    });
-
+    const existingCoupon = await prisma.coupon.findUnique({ where: { id } });
     if (!existingCoupon) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: 'COUPON_NOT_FOUND',
-          message: 'Cupón no encontrado',
-        },
-      });
+      return res.status(404).json(COUPON_NOT_FOUND);
     }
 
-    // Check code uniqueness if changed
-    if (code && code !== existingCoupon.code) {
-      const existingCode = await prisma.coupon.findUnique({
-        where: { code }
-      });
-
+    if (req.body.code !== existingCoupon.code) {
+      const existingCode = await prisma.coupon.findUnique({ where: { code: req.body.code } });
       if (existingCode) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'DUPLICATE_CODE',
-            message: 'El código de cupón ya existe',
-          },
-        });
+        return res.status(409).json(DUPLICATE_CODE);
       }
     }
 
     const coupon = await prisma.coupon.update({
-      where: { id: parseInt(id) },
-      data: {
-        code: code ? code.toUpperCase() : undefined,
-        discount_type,
-        discount_value: discount_value ? parseFloat(discount_value) : undefined,
-        min_purchase_amount: min_purchase_amount !== undefined ? (min_purchase_amount ? parseFloat(min_purchase_amount) : null) : undefined,
-        max_discount_amount: max_discount_amount !== undefined ? (max_discount_amount ? parseFloat(max_discount_amount) : null) : undefined,
-        start_date: start_date ? new Date(start_date) : undefined,
-        end_date: end_date ? new Date(end_date) : undefined,
-        usage_limit: usage_limit !== undefined ? (usage_limit ? parseInt(usage_limit) : null) : undefined,
-        is_active: is_active !== undefined ? is_active : undefined
-      }
+      where: { id },
+      data: { ...couponData(req.body), is_active: req.body.is_active ?? existingCoupon.is_active },
     });
 
     res.json({
@@ -214,40 +170,37 @@ export const updateCoupon = async (req, res, next) => {
       message: 'Cupón actualizado exitosamente',
     });
   } catch (error) {
+    if (isDuplicateCode(error)) return res.status(409).json(DUPLICATE_CODE);
     next(error);
   }
 };
 
 /**
- * Delete coupon
+ * Delete coupon (deactivate it when it was ever used or is on an order)
  * DELETE /api/admin/coupons/:id
  */
 export const deleteCoupon = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
 
-    // Check if coupon has been used
     const coupon = await prisma.coupon.findUnique({
-      where: { id: parseInt(id) }
+      where: { id },
+      include: { _count: { select: { orders: true } } },
     });
+    if (!coupon) {
+      return res.status(404).json(COUPON_NOT_FOUND);
+    }
 
-    if (coupon && coupon.used_count > 0) {
-      // Soft delete if used
-      await prisma.coupon.update({
-        where: { id: parseInt(id) },
-        data: { is_active: false }
-      });
-      
+    if (coupon.times_used > 0 || coupon._count.orders > 0) {
+      await prisma.coupon.update({ where: { id }, data: { is_active: false } });
+
       return res.json({
         success: true,
         message: 'Cupón desactivado (no se puede eliminar porque ya ha sido usado)',
       });
     }
 
-    // Hard delete if never used
-    await prisma.coupon.delete({
-      where: { id: parseInt(id) }
-    });
+    await prisma.coupon.delete({ where: { id } });
 
     res.json({
       success: true,

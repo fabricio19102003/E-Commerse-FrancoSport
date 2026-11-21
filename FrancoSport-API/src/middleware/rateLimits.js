@@ -10,21 +10,26 @@
 import rateLimit from 'express-rate-limit';
 
 const WINDOW_MS = 15 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 export const RATE_LIMITS = {
   global: 600, // per IP
   auth: 10, // login, register and refresh, each per IP
   authEmail: 10, // login and register, each per email
   orders: 20, // order creation, per user
+  couponValidate: 30, // coupon validation at checkout, per user
+  authToken: 10, // verify-email and reset-password, each per IP
+  resendVerification: 3, // per user, per hour
+  forgotPassword: 5, // per IP and per email, per hour
 };
 
 const tooMany = (code, message) => (req, res) =>
   res.status(429).json({ success: false, error: { code, message } });
 
 export const createRateLimiters = ({ enabled = process.env.NODE_ENV !== 'test' } = {}) => {
-  const make = ({ limit, code = 'RATE_LIMITED', message, keyGenerator, skip }) =>
+  const make = ({ limit, windowMs = WINDOW_MS, code = 'RATE_LIMITED', message, keyGenerator, skip }) =>
     rateLimit({
-      windowMs: WINDOW_MS,
+      windowMs,
       limit,
       standardHeaders: true,
       legacyHeaders: false,
@@ -41,6 +46,7 @@ export const createRateLimiters = ({ enabled = process.env.NODE_ENV !== 'test' }
       keyGenerator: (req) => `email-${String(req.body.email).trim().toLowerCase()}`,
       skip: (req) => typeof req.body?.email !== 'string',
     });
+  const tokenMessage = 'Demasiados intentos; intente de nuevo en 15 minutos';
   const authMessage = 'Demasiados intentos de autenticación desde esta IP; intente de nuevo en 15 minutos';
 
   return {
@@ -58,5 +64,34 @@ export const createRateLimiters = ({ enabled = process.env.NODE_ENV !== 'test' }
       message: 'Demasiados pedidos en poco tiempo; intente de nuevo en 15 minutos',
       keyGenerator: (req) => `user-${req.user.id}`,
     }),
+    // After authenticate: counted per account
+    couponValidate: make({
+      limit: RATE_LIMITS.couponValidate,
+      message: 'Demasiadas validaciones de cupón; intente de nuevo en 15 minutos',
+      keyGenerator: (req) => `user-${req.user.id}`,
+    }),
+    verifyEmail: make({ limit: RATE_LIMITS.authToken, message: tokenMessage }),
+    resetPassword: make({ limit: RATE_LIMITS.authToken, message: tokenMessage }),
+    // After authenticate: counted per account
+    resendVerification: make({
+      limit: RATE_LIMITS.resendVerification,
+      windowMs: HOUR_MS,
+      message: 'Demasiados reenvíos de verificación; intente de nuevo en una hora',
+      keyGenerator: (req) => `user-${req.user.id}`,
+    }),
+    forgotPassword: [
+      make({
+        limit: RATE_LIMITS.forgotPassword,
+        windowMs: HOUR_MS,
+        message: 'Demasiadas solicitudes de recuperación desde esta IP; intente de nuevo en una hora',
+      }),
+      make({
+        limit: RATE_LIMITS.forgotPassword,
+        windowMs: HOUR_MS,
+        message: 'Demasiadas solicitudes de recuperación para este correo; intente de nuevo en una hora',
+        keyGenerator: (req) => `email-${String(req.body.email).trim().toLowerCase()}`,
+        skip: (req) => typeof req.body?.email !== 'string',
+      }),
+    ],
   };
 };

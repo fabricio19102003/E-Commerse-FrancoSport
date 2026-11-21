@@ -34,16 +34,19 @@ export interface Coupon {
   updated_at: string;
 }
 
+/** POST /coupons/validate: the subtotal is computed by the server from the items (never sent by the client) */
 export interface ValidateCouponInput {
   code: string;
-  cart_subtotal: number;
+  items?: { product_id: number; variant_id?: number | null; quantity: number }[];
 }
 
-export interface ValidateCouponResponse {
-  valid: boolean;
-  coupon?: Coupon;
-  discount_amount?: number;
-  message?: string;
+/** Discount the server computes for the cart; the amounts are decimal strings ("12.50") */
+export interface CouponPreview {
+  code: string;
+  description: string;
+  discount_type: DiscountType;
+  subtotal: string;
+  discount_amount: string;
 }
 
 // ===== CREATE/UPDATE COUPON (Admin) =====

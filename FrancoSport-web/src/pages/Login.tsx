@@ -136,7 +136,7 @@ const Login: React.FC = () => {
                   to={ROUTES.FORGOT_PASSWORD}
                   className="font-medium text-primary-300 hover:text-primary-200 transition-colors"
                 >
-                  ¿Olvidaste tu contraseña?
+                  ¿Olvidó su contraseña?
                 </Link>
               </div>
 

@@ -9,11 +9,6 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 segundos
 } as const;
 
-// ===== Stripe Configuration =====
-export const STRIPE_CONFIG = {
-  PUBLIC_KEY: import.meta.env.VITE_STRIPE_PUBLIC_KEY || '',
-} as const;
-
 // ===== App Configuration =====
 export const APP_CONFIG = {
   NAME: import.meta.env.VITE_APP_NAME || 'Franco Sport',
@@ -99,8 +94,6 @@ export const ROUTES = {
   // Auth routes
   LOGIN: '/login',
   REGISTER: '/registro',
-  FORGOT_PASSWORD: '/recuperar-contrasena',
-  RESET_PASSWORD: '/restablecer-contrasena/:token',
 
   // User routes (authenticated)
   PROFILE: '/perfil',

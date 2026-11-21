@@ -4,14 +4,15 @@ import { paymentMethodLabel } from '@/constants/labels';
 import { useNavigate } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { Button, Card, Input } from '@/components/ui';
-import { Loader2, Check, CreditCard, Truck, MapPin, QrCode, Upload, X, Award } from 'lucide-react';
+import { Loader2, Check, CreditCard, Truck, MapPin, QrCode, Upload, X, Award, Tag } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/store';
 import { getAddresses, createAddress } from '@/api/users.service';
 import { createOrder } from '@/api/orders.service';
+import { validateCoupon } from '@/api/coupons.service';
 import { getShippingMethods } from '@/api/shipping.service';
 import { getErrorMessage } from '@/api/axios';
 import { ROUTES, generateRoute } from '@/constants/routes';
-import type { Address, AvailableShippingMethod } from '@/types';
+import type { Address, AvailableShippingMethod, CouponPreview } from '@/types';
 import toast from 'react-hot-toast';
 import { logBeginCheckout, logPurchase } from '@/api/analytics.service';
 import { paymentService } from '@/api/payment.service';
@@ -50,10 +51,22 @@ const Checkout: React.FC = () => {
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
 
+  // Coupon: validated by the API for this cart; a coupon or points, never both
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponPreview | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const cartKey = items.map((item) => `${item.product_id}:${item.variant_id ?? ''}:${item.quantity}`).join('|');
+  const appliedCartKeyRef = useRef('');
+  const couponDiscount = appliedCoupon ? Number(appliedCoupon.discount_amount) : 0;
+  // With a coupon the subtotal is the one the server used for the discount, i.e. the one it charges
+  const orderSubtotal = appliedCoupon ? Number(appliedCoupon.subtotal) : subtotal;
+
   // Loyalty Points
   const [redeemPoints, setRedeemPoints] = useState(0);
   const pointsValue = redeemPoints / 100; // 100 points = Bs. 1
   const maxRedeemablePoints = user ? Math.min(user.loyalty_points, Math.round((subtotal + shippingCost) * 100)) : 0;
+  const orderTotal = orderSubtotal + shippingCost - couponDiscount - pointsValue;
 
   // New Address Form
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -153,6 +166,49 @@ const Checkout: React.FC = () => {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) {
+      setCouponError('Ingrese el código del cupón');
+      return;
+    }
+    try {
+      setIsApplyingCoupon(true);
+      setCouponError(null);
+      const preview = await validateCoupon({
+        code,
+        items: items.map((item) => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          quantity: item.quantity,
+        })),
+      });
+      appliedCartKeyRef.current = cartKey;
+      setAppliedCoupon(preview);
+      setRedeemPoints(0);
+      setCouponInput(preview.code);
+    } catch (error) {
+      setAppliedCoupon(null);
+      setCouponError(getErrorMessage(error) || 'No se pudo validar el cupón');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+    setCouponInput('');
+  };
+
+  // A discount computed for another cart is no longer the one the API would charge
+  useEffect(() => {
+    if (appliedCoupon && appliedCartKeyRef.current !== cartKey) {
+      setAppliedCoupon(null);
+      setCouponError('El carrito cambió: vuelva a aplicar el cupón');
+    }
+  }, [cartKey, appliedCoupon]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -194,7 +250,8 @@ const Checkout: React.FC = () => {
         shipping_address_id: selectedAddressId,
         payment_method: paymentMethod === 'QR_TRANSFER' ? 'BANK_TRANSFER' : 'CASH_ON_DELIVERY',
         shipping_method_id: selectedShippingMethodId,
-        redeem_points: redeemPoints > 0 ? redeemPoints : undefined
+        redeem_points: !appliedCoupon && redeemPoints > 0 ? redeemPoints : undefined,
+        coupon_code: appliedCoupon ? appliedCoupon.code : undefined
       };
 
       const newOrder = await createOrder(orderData);
@@ -211,7 +268,7 @@ const Checkout: React.FC = () => {
       }
 
       // Track purchase
-      logPurchase(newOrder.id.toString(), items, subtotal + shippingCost - pointsValue);
+      logPurchase(newOrder.id.toString(), items, orderTotal);
 
       orderPlacedRef.current = true;
       clearCart();
@@ -630,13 +687,67 @@ const Checkout: React.FC = () => {
                 <div className="space-y-2 text-sm mb-4">
                   <div className="flex justify-between text-text-secondary">
                     <span>Subtotal</span>
-                    <span>{formatCurrency(subtotal)}</span>
+                    <span>{formatCurrency(orderSubtotal)}</span>
                   </div>
                   <div className="flex justify-between text-text-secondary">
                     <span>Envío</span>
                     <span>{formatCurrency(shippingCost)}</span>
                   </div>
-                  
+
+                  {/* Coupon (or points, not both) */}
+                  <div className="py-4 border-t border-border mt-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag className="w-4 h-4 text-primary" />
+                      <span className="font-bold text-sm">¿Tiene un cupón?</span>
+                    </div>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2">
+                        <span className="text-sm font-medium text-green-600 break-all">{appliedCoupon.code}</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={handleRemoveCoupon}>
+                          Quitar
+                        </Button>
+                      </div>
+                    ) : (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleApplyCoupon();
+                        }}
+                        className="flex items-start gap-2"
+                      >
+                        <div className="flex-1">
+                          <Input
+                            aria-label="Código del cupón"
+                            placeholder="Código del cupón"
+                            value={couponInput}
+                            onChange={(e) => {
+                              setCouponInput(e.target.value);
+                              setCouponError(null);
+                            }}
+                            error={couponError ?? undefined}
+                            disabled={redeemPoints > 0 || isApplyingCoupon}
+                            maxLength={50}
+                          />
+                        </div>
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          isLoading={isApplyingCoupon}
+                          disabled={redeemPoints > 0 || !couponInput.trim()}
+                        >
+                          Aplicar
+                        </Button>
+                      </form>
+                    )}
+                    <p className="text-xs text-text-secondary mt-2">
+                      {appliedCoupon
+                        ? 'Con un cupón no se pueden canjear puntos. Quite el cupón para usar sus puntos.'
+                        : redeemPoints > 0
+                          ? 'Está canjeando puntos: ponga el canje en 0 para usar un cupón.'
+                          : 'Puede usar un cupón o sus puntos, no ambos.'}
+                    </p>
+                  </div>
+
                   {/* Loyalty Points Redemption */}
                   {user && user.loyalty_points > 0 && (
                     <div className="py-4 border-t border-b border-border my-2">
@@ -656,13 +767,21 @@ const Checkout: React.FC = () => {
                           step="100"
                           value={redeemPoints}
                           onChange={(e) => setRedeemPoints(Number(e.target.value))}
-                          className="w-full accent-primary"
+                          disabled={appliedCoupon !== null}
+                          className="w-full accent-primary disabled:opacity-50"
                         />
                       </div>
                       <div className="flex justify-between text-xs mt-1">
                         <span>0</span>
                         <span className="font-bold text-primary">{redeemPoints} pts (-{formatCurrency(pointsValue)})</span>
                       </div>
+                    </div>
+                  )}
+
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Descuento (Cupón {appliedCoupon.code})</span>
+                      <span>-{formatCurrency(couponDiscount)}</span>
                     </div>
                   )}
 
@@ -675,7 +794,7 @@ const Checkout: React.FC = () => {
 
                   <div className="border-t border-border pt-2 flex justify-between font-bold text-lg text-primary">
                     <span>Total</span>
-                    <span>{formatCurrency(subtotal + shippingCost - pointsValue)}</span>
+                    <span>{formatCurrency(orderTotal)}</span>
                   </div>
                 </div>
                 <div className="text-xs text-text-tertiary text-center">
