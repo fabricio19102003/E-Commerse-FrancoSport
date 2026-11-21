@@ -11,9 +11,10 @@ Branch chore/demo-ready (from main).
 
 ## Tasks
 - [x] T1 (S2) Remove free-shipping promises — parent — commit 90bd1f5
-- [ ] T2 (S3-S5) Seed review, one-command local start, DEMO.md, verified by a real start from scratch — worker — commit: pending
+- [x] T2 (S3-S5) Seed review, one-command local start, DEMO.md, verified by a real start from scratch — worker — commit 1d65b17
 
 ## Log
 - L1 (user): "ok lo del envio gratis a partir de 500bs quitalo. tambien quiero que luego revises que existan usuario admin en el seed, como se levanta el proyecto y demas para poder mostrarle al propietario de franco sport".
 - L2 (user): demo "En mi máquina (local)".
 - L3 (user, on images for the demo): "Guardado local solo para desarrollo (Recomendado)" → a local storage driver for development only: images saved under a local folder and served by the API; enabling it with NODE_ENV=production makes the API refuse to start; tests for both. Needs src/app.js (static route) — parent widens the worker surface.
+- L4: seed idempotent (RED: products_slug_key on rerun) with admin@francosport.com / cliente@francosport.com (demo passwords FrancoAdmin2026 / FrancoCliente2026 set by demo/start.sh); demo ports MySQL 33316, API 3101, web 5183 on 127.0.0.1; local storage driver + /uploads + local URL ids + magic bytes on legacy multer routes (RED 6 failed in a scratch copy); real run from clean state: order, PNG proof served, fake PNG 400, admin approve, brand image, stop/start persistence, reset --yes. API 465 tests twice.
