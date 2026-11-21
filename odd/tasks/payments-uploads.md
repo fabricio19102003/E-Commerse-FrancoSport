@@ -10,9 +10,11 @@ Branch fix/payments-uploads (from fix/order-validation, PR #7). Step 2 of the re
 - S5 Tests through HTTP for every rule (status, exact Spanish message, nothing changed on rejection), using the test setup of PR #7; Cloudinary is never called in tests (mock only the storage adapter). Existing admin and customer flows keep working; Spanish messages; no schema change unless needed.
 
 ## Tasks
-- [ ] T1 (S1-S5) Upload restriction, payment proof and approval hardening, test-first — worker — Risk: item 2 — commit: pending
-- [ ] T2 (S2-S4) Independent verification — gentle-ai-verify — commit: n/a
+- [x] T1 (S1-S5) Upload restriction, payment proof and approval hardening, test-first — worker — Risk: item 2 — commits 5d6026d, b5b52fd
+- [x] T2 (S2-S4) Independent verification — gentle-ai-verify — commit: n/a
 
 ## Log
 - L1 (user): "ok dale entonces sigamos por donde me propones" → PR #7 opened (issue #6); then step 2 of the review (this feature), then step 3 (web build and vulnerable dependencies).
 - L2: routes found: `routes/upload.routes.js` (POST /image and /images only `authenticate`; DELETE /image/:publicId requireAdmin), `routes/payment.routes.js` (POST /proof/:orderId authenticate + upload.single), `routes/admin/payment.routes.js` (POST /approve/:orderId). Web callers of uploads: api/upload.service.ts, Checkout.tsx, admin pages (AdminProductForm, AdminPromotions, AdminOrderDetail).
+- L3: verify of 5d6026d: S2-S5 met, no blockers; advisories: customer cancel of a PAID order left CANCELLED+PAID, stale payment_status in admin cancel claim, proof swapped during review, old proof not deleted, no multer field limits. User decision on the first: "El cliente no puede cancelar un pedido ya pagado (Recomendado)" → 400 "Su pago ya fue aprobado: para cancelar el pedido comuníquese con la tienda"; admin cancel keeps PAID → REFUNDED. Fixes delegated test-first.
+- L4: advisories fixed test-first (RED 16 failed → 220 green); parent restricted the previous-proof delete to https res.cloudinary.com/<configured cloud>/image/upload/franco-sport/… (RED 2 failed → green); suite 223 green twice. Customer cancel of a PAID order → 400 "Su pago ya fue aprobado: para cancelar el pedido comuníquese con la tienda" (PAID checked first, so also for shipped paid orders). Not run in a browser; OrderDetail "Cancelar Pedido" still has no click handler (pre-existing).
