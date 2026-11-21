@@ -493,8 +493,8 @@ const Home: React.FC = () => {
                 </div>
                 <h3 className="text-xl font-semibold">Envío Rápido</h3>
                 <p className="text-text-secondary">
-                  Recibe tus productos en tiempo récord. Envío gratis en compras superiores a Bs.
-                  500.
+                  Recibe tus productos en tiempo récord, con el método de envío que elijas al
+                  pagar.
                 </p>
               </CardContent>
             </Card>

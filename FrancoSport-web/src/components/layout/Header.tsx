@@ -9,7 +9,7 @@ import {
   Search,
   Menu,
   X,
-  Clock,
+  CreditCard,
   LogOut,
 } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
@@ -21,7 +21,6 @@ const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
-  const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 59, seconds: 59 });
 
   // Get data from stores
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -36,19 +35,6 @@ const Header: React.FC = () => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Countdown timer
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return prev;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -74,19 +60,12 @@ const Header: React.FC = () => {
 
   return (
     <>
-      {/* TOP BAR PROMOCIONAL */}
+      {/* TOP BAR: medios de pago reales */}
       <div className="bg-gradient-to-r from-red-700 to-red-900 text-white py-2 px-4 flex justify-center items-center text-sm font-bold tracking-wider relative z-[60]">
-        <Clock size={16} className="mr-2 animate-pulse" />
-        <span className="mr-4 uppercase hidden md:inline">
-          Oferta de Lanzamiento: Envío Gratis &gt; Bs. 500
+        <CreditCard size={16} className="mr-2" aria-hidden="true" />
+        <span className="uppercase text-center">
+          Paga con QR, transferencia bancaria o contra entrega
         </span>
-        <div className="flex gap-2 font-mono bg-black/30 px-3 py-1 rounded items-center">
-          <span className="text-red-300">{String(timeLeft.hours).padStart(2, '0')}h</span>:
-          <span className="text-red-300">{String(timeLeft.minutes).padStart(2, '0')}m</span>:
-          <span className="text-red-300 w-6 inline-block text-center">
-            {String(timeLeft.seconds).padStart(2, '0')}s
-          </span>
-        </div>
       </div>
 
       {/* NAVBAR PRINCIPAL */}

@@ -4,9 +4,18 @@
  *
  * The only place that talks to Cloudinary for uploads and deletes. Tests mock
  * this module so no real account is ever reached.
+ *
+ * With STORAGE_DRIVER=local (development only, refused in production) images are
+ * saved on this machine instead; see config/cloudinary.js.
  */
 
-import { cloudinary, PROJECT_FOLDER } from '../config/cloudinary.js';
+import {
+  cloudinary,
+  PROJECT_FOLDER,
+  resolveStorageDriver,
+  saveLocalImage,
+  deleteLocalImage,
+} from '../config/cloudinary.js';
 
 const TRANSFORMATION = [
   {
@@ -18,11 +27,7 @@ const TRANSFORMATION = [
   },
 ];
 
-/**
- * Upload an in-memory image to a Cloudinary folder
- * @returns {Promise<{url: string, public_id: string, width: number, height: number, format: string, bytes: number}>}
- */
-export const uploadImageBuffer = (buffer, { folder = `${PROJECT_FOLDER}/products` } = {}) =>
+const uploadToCloudinary = (buffer, folder) =>
   new Promise((resolve, reject) => {
     const stream = cloudinary.v2.uploader.upload_stream(
       {
@@ -47,7 +52,15 @@ export const uploadImageBuffer = (buffer, { folder = `${PROJECT_FOLDER}/products
   });
 
 /**
+ * Upload an in-memory image to a Cloudinary folder (or to the local folder with STORAGE_DRIVER=local)
+ * @returns {Promise<{url: string, public_id: string, width: number|null, height: number|null, format: string, bytes: number}>}
+ */
+export const uploadImageBuffer = async (buffer, { folder = `${PROJECT_FOLDER}/products` } = {}) =>
+  resolveStorageDriver() === 'local' ? saveLocalImage(buffer, { folder }) : uploadToCloudinary(buffer, folder);
+
+/**
  * Delete an image by public id
  * @returns {Promise<{result: string}>} Cloudinary answer; `result` is 'ok' when deleted
  */
-export const deleteStoredImage = (publicId) => cloudinary.v2.uploader.destroy(publicId);
+export const deleteStoredImage = async (publicId) =>
+  resolveStorageDriver() === 'local' ? deleteLocalImage(publicId) : cloudinary.v2.uploader.destroy(publicId);

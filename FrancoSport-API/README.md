@@ -86,6 +86,10 @@ Esto creará:
 - Cupones de descuento
 - Configuración de pago por QR/transferencia con **datos de ejemplo** (imagen QR y datos bancarios de relleno; cámbialos en el panel admin antes de vender). Si ya existe una configuración, el seed no la sobrescribe.
 
+El seed es **idempotente**: puedes ejecutarlo varias veces sin errores ni duplicados. Cada registro se busca por su clave natural (correo, slug, SKU, código de cupón, nombre de zona/método) y solo se crea si falta; nunca se reinician contraseñas, stock, precios ni usos de cupones ya cambiados. Las contraseñas salen de `SEED_ADMIN_PASSWORD` y `SEED_USER_PASSWORD`; fuera de producción, si faltan, se usan `admin123` / `user123`. En producción el seed se niega a correr sin esas variables.
+
+> Para mostrar la tienda localmente con un solo comando, ver [`DEMO.md`](../DEMO.md) (`demo/start.sh`).
+
 ## 🎯 Uso
 
 ### Modo Desarrollo
@@ -390,6 +394,7 @@ No uses `true`: confiaría en cualquier `X-Forwarded-For` y permitiría evadir l
 - Clientes: `POST /api/payment/proof/:orderId` (campo `image`), solo el dueño del pedido, pedidos `QR_TRANSFER`/`BANK_TRANSFER` no cancelados con pago pendiente (o rechazado). Máx. 10 subidas por usuario cada 15 minutos. El pedido se crea primero (`payment_proof_url` ya no se acepta al crearlo) y el comprobante se sube después.
 - `POST /api/admin/payment/approve/:orderId`: solo pedidos con pago pendiente y comprobante, sin cancelar ni reembolsar; una aprobación repetida o simultánea responde 409. Opcionalmente recibe `payment_proof_url` (el comprobante que vio el admin); si ya cambió responde 409. Si un cliente intenta cancelar un pedido con pago aprobado responde 400 (debe contactar a la tienda).
 - Al reemplazar un comprobante se borra la imagen anterior de Cloudinary (si está en la carpeta `franco-sport/`).
+- **Almacenamiento local (solo desarrollo)**: con `STORAGE_DRIVER=local` las imágenes se guardan en `STORAGE_LOCAL_DIR` (por defecto `FrancoSport-API/storage/uploads/`, ignorada por Git) y la API devuelve URLs `${PUBLIC_API_URL}/uploads/franco-sport/...` (por defecto `http://localhost:$PORT`). Sin redimensionar. Con `NODE_ENV=production` la API se niega a arrancar si está activo; por defecto (`cloudinary`) todo funciona como antes. Lo usa `demo/start.sh`. Opcional: `HOST=127.0.0.1` hace que la API escuche solo en esta computadora (sin definir, escucha en todas las interfaces, como siempre).
 
 ## 🐛 Debugging
 

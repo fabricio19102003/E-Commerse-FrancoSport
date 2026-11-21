@@ -27,6 +27,8 @@ npm install
 npm run dev                   # http://localhost:5173
 ```
 
+> **Showing the store locally (Linux + Docker)?** One command, no `.env` files: `demo/start.sh`. See [`DEMO.md`](DEMO.md) (Spanish).
+
 > Both `.env.example` files are committed and documented. **Never commit real `.env` files.**
 
 ---

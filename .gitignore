@@ -1,0 +1,5 @@
+# Local demo (demo/start.sh): generated secrets, PIDs and logs
+demo/.local/
+
+# Images uploaded during the demo (STORAGE_DRIVER=local, development only)
+FrancoSport-API/storage/
