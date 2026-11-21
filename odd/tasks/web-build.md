@@ -10,7 +10,8 @@ Branch fix/web-build (from fix/payments-uploads). Step 3 of the review. Worktree
 - S5 No behaviour change: the main pages (home, products, product detail, cart, checkout, login, admin dashboard/products/orders) render in a production build (`vite preview`) with no console errors, checked with Playwright against the built app (API not required: pages may show their empty/error states, but must not crash).
 
 ## Tasks
-- [ ] T1 (S1-S5) Fix TS errors, upgrade vulnerable dependencies, smoke the build — worker — Risk: item 5 (dependencies) — commit: pending
+- [x] T1 (S1-S5) Fix TS errors, upgrade vulnerable dependencies, smoke the build — worker — Risk: item 5 (dependencies) — commit e0c8971
 
 ## Log
 - L1 (user): "ok dale entonces sigamos por donde me propones" (step 1 PR #7, step 2 fix/payments-uploads, step 3 this).
+- L2: worker: tsc 15 → 0 (only 1 real error: Modal children; 14 unused), build passes, lint 146 → 115 (0 in touched files), web audit 1C/8H/4M → 0/0/2M (react-router 6, fix needs v7), API audit 3H → 0, API 162 tests green. Majors: jspdf 4, zod 4 + @hookform/resolvers 5 (web), nodemailer 10, cloudinary 2 + override for multer-storage-cloudinary (API). Smoke: 12 routes × 1440/390 on vite preview with the API down, 0 page errors. Parent checked nodemailer 10 sendMail (jsonTransport), cloudinary 2 config/sign/upload_stream and CloudinaryStorage load. Not exercised: zod 4 form validation and jspdf export in a browser with real data.
