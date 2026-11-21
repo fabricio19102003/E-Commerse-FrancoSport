@@ -11,7 +11,8 @@ Branch fix/store-polish (from fix/web-build, PR #11). Fourth PR of the chain.
 - S6 Rate limits: global limit 600 requests per 15 minutes per IP; stricter limits on login/register/refresh (10 per 15 minutes per IP, plus per email where the route has one), on order creation and on payment-proof upload (existing per-user limit kept); `TRUST_PROXY` env var (unset = no proxy, e.g. `1` behind one reverse proxy) passed to Express `trust proxy` so limits see the real client IP; Spanish 429 messages; limits still skipped when NODE_ENV=test except in tests that assert them.
 
 ## Tasks
-- [ ] T1 (S1-S6) Web polish, seed and rate limits, test-first where testable — worker — commit: pending
+- [x] T1 (S1-S6) Web polish, seed and rate limits, test-first where testable — worker — commit b19b8ed
 
 ## Log
 - L1 (user answers after the end-to-end walkthrough of 2026-11-21): the four polish items and "Más alto + estricto donde importa (Recomendado)".
+- L2: done. API 238 tests green twice (15 new rate-limit tests, RED 14 failed); web tsc 0, build OK; Playwright 12/12 on the production build with mocked API (no $, no raw English). 25 amounts moved to the shared Bs. formatter. Seed only upserts the BANK_TRANSFER config (rest of the seed still not idempotent). Limiter counters are in memory per process. Not exercised in a real browser with the API: admin QR settings page.
