@@ -21,9 +21,6 @@ export const APP_CONFIG = {
 
 // ===== Business Rules =====
 export const BUSINESS_RULES = {
-  // Envío gratis
-  FREE_SHIPPING_THRESHOLD: 1000, // Bs. 1000
-
   // Carrito
   CART_EXPIRATION_DAYS: 30,
   MAX_ITEMS_PER_PRODUCT: 10,
