@@ -1,6 +1,6 @@
 import axios from '../axios';
 
-export type CouponDiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
+export type CouponDiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'FREE_SHIPPING';
 
 /** Same fields as the API Coupon model; decimals (Bs.) arrive as strings */
 export interface Coupon {
@@ -21,7 +21,8 @@ export interface Coupon {
     updated_at: string;
 }
 
-/** Body of create and update (PUT replaces the editable fields); null or absent limits mean none */
+/** Body of create and update (PUT replaces the editable fields); null or absent limits mean none.
+ * discount_value is ignored for FREE_SHIPPING (the API stores 0). */
 export interface CouponFormData {
     code: string;
     description: string;

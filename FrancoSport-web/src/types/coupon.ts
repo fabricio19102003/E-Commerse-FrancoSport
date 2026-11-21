@@ -37,6 +37,8 @@ export interface Coupon {
 /** POST /coupons/validate: the subtotal is computed by the server from the items (never sent by the client) */
 export interface ValidateCouponInput {
   code: string;
+  /** Required for FREE_SHIPPING coupons: their discount is this method's shipping cost */
+  shipping_method_id?: number;
   items?: { product_id: number; variant_id?: number | null; quantity: number }[];
 }
 
@@ -45,7 +47,11 @@ export interface CouponPreview {
   code: string;
   description: string;
   discount_type: DiscountType;
+  /** What the discount comes off: the shipping cost (FREE_SHIPPING) or the products subtotal */
+  applies_to: 'SHIPPING' | 'SUBTOTAL';
   subtotal: string;
+  /** Shipping cost of the chosen method; null when no method was sent */
+  shipping_cost: string | null;
   discount_amount: string;
 }
 

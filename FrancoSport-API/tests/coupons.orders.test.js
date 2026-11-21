@@ -208,15 +208,19 @@ describe('POST /api/orders with coupon_code - rules (S5)', () => {
     expect(await snapshotOf(ctx)).toEqual(before);
   });
 
-  it('rejects a FREE_SHIPPING coupon (shipping is never discounted) and changes nothing', async () => {
+  // Deliberate change (password-page-free-shipping S3): FREE_SHIPPING used to be rejected with
+  // 'Este tipo de cupón todavía no está disponible en el checkout'; it is now applied to the shipping.
+  // The full behavior is covered in coupons.free-shipping.test.js.
+  it('accepts a FREE_SHIPPING coupon: it discounts the shipping and never the subtotal', async () => {
     const ctx = await createContext();
     const coupon = await createCoupon({ discount_type: 'FREE_SHIPPING', discount_value: '0.00' });
-    const before = await snapshotOf(ctx);
 
     const res = await createOrderViaApi(ctx, withCoupon(coupon));
 
-    expectRejected(res, 'COUPON_INVALID', 'Este tipo de cupón todavía no está disponible en el checkout');
-    await expectUntouched(ctx, coupon, before);
+    expect(res.status).toBe(201);
+    expectTotals(res.body.data, { subtotal: 20, discount: 5, shipping: 5, total: 20 });
+    expect(res.body.data.coupon_id).toBe(coupon.id);
+    expect(await timesUsed(coupon.id)).toBe(1);
   });
 
   it('enforces the minimum purchase on the subtotal, not on subtotal + shipping', async () => {

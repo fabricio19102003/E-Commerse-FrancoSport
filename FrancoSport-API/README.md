@@ -137,7 +137,7 @@ POST /api/auth/reset-password       # { token, password } Fijar una nueva contra
 - El registro envía el correo de verificación. Crear un pedido exige correo verificado (`403 EMAIL_NOT_VERIFIED`; el middleware `requireVerifiedEmail` de `src/middleware/auth.js`; los administradores quedan exentos). Los correos de marketing siguen yendo solo a clientes verificados.
 - `forgot-password` responde igual (200) exista o no el correo, tras la misma consulta; el token y el correo de un correo registrado se crean después de responder. Un nuevo pedido invalida los enlaces anteriores.
 - `reset-password` aplica las mismas reglas de contraseña que el registro, invalida el token y los demás tokens de recuperación del usuario, y guarda `users.password_changed_at`. Los refresh tokens llevan esa fecha: tras un cambio de contraseña los emitidos antes dejan de renovar el acceso (`401 INVALID_REFRESH_TOKEN`). Los tokens de acceso llevan la misma marca (`pwd`): tras un restablecimiento o cambio de contraseña los emitidos antes responden `401 TOKEN_REVOKED`.
-- Los enlaces usan `FRONTEND_URL`: `/verificar-correo?token=…` y `/restablecer-contrasena?token=…`. Sin configuración SMTP los correos solo se registran en consola (`[MOCK EMAIL]`); las pruebas simulan únicamente el transporte y nunca envían correo real.
+- Los enlaces usan `FRONTEND_URL`: `/verificar-correo?token=…` y `/restablecer-contrasena?token=…`. Sin configuración SMTP los correos solo se registran en consola (`[MOCK EMAIL] To: …, Subject: …`); fuera de producción (`NODE_ENV` distinto de `production`) la línea incluye además `Links: …` con los enlaces del correo, para completar la verificación y la recuperación en local; en producción nunca se registran enlaces. Las pruebas simulan únicamente el transporte y nunca envían correo real.
 
 ### Productos
 
@@ -171,7 +171,8 @@ Al crear un pedido el cliente envía `items` (`product_id`, `variant_id` opciona
 `shipping_address_id`, `shipping_method_id`, `payment_method` y, opcionalmente, `redeem_points` (entero ≥ 0) o
 `coupon_code` (texto, sin distinguir mayúsculas): un pedido usa cupón o puntos, no ambos.
 Los precios, el costo de envío, el descuento del cupón y el total se calculan siempre en el servidor; el descuento
-se aplica al subtotal (nunca al envío) y queda guardado en el pedido (`coupon_id`, `discount_amount`).
+se aplica al subtotal (`PERCENTAGE`, `FIXED_AMOUNT`) o, con `FREE_SHIPPING`, al costo de envío (nunca a los precios
+de los productos) y queda guardado en el pedido (`coupon_id`, `discount_amount`).
 Cancelar el pedido libera el uso del cupón; reabrirlo lo toma de nuevo o falla si el cupón ya no es válido.
 
 ### Cupones
@@ -180,14 +181,16 @@ Cancelar el pedido libera el uso del cupón; reabrirlo lo toma de nuevo o falla 
 POST /api/coupons/validate          # Calcular el descuento de un cupón (requiere auth)
 ```
 
-Body: `{ "code": "VERANO10", "items": [{ "product_id": 1, "variant_id": null, "quantity": 2 }] }`. `items` es opcional
-(mismo formato que al crear un pedido); sin `items` se usa el carrito del cliente. No reserva nada: el descuento
+Body: `{ "code": "VERANO10", "items": [{ "product_id": 1, "variant_id": null, "quantity": 2 }], "shipping_method_id": 3 }`.
+`items` es opcional (mismo formato que al crear un pedido); sin `items` se usa el carrito del cliente.
+`shipping_method_id` es obligatorio para un cupón `FREE_SHIPPING` (su descuento es el costo de envío de ese método)
+y se ignora en los demás. No reserva nada: el descuento
 definitivo se calcula al crear el pedido. Máx. 30 validaciones por usuario cada 15 minutos.
 
-Respuesta `200`:
+Respuesta `200` (`applies_to` es `SHIPPING` para `FREE_SHIPPING`; `shipping_cost` es `null` sin `shipping_method_id`):
 
 ```json
-{ "success": true, "data": { "code": "VERANO10", "description": "10% en verano", "discount_type": "PERCENTAGE", "subtotal": "40.00", "discount_amount": "4.00" } }
+{ "success": true, "data": { "code": "VERANO10", "description": "10% en verano", "discount_type": "PERCENTAGE", "applies_to": "SUBTOTAL", "subtotal": "40.00", "shipping_cost": null, "discount_amount": "4.00" } }
 ```
 
 Errores `400` (`error.code` y `error.message`):
@@ -196,7 +199,9 @@ Errores `400` (`error.code` y `error.message`):
 | --- | --- |
 | `VALIDATION_ERROR` | `Ingrese el código del cupón`, `Debe incluir entre 1 y 50 productos`, `ID de producto inválido`, `La cantidad debe ser un número entero entre 1 y 99` |
 | `EMPTY_CART` | `Su carrito está vacío` |
-| `COUPON_INVALID` | `Cupón no válido o vencido` (no existe, inactivo o fuera de su vigencia) · `Este tipo de cupón todavía no está disponible en el checkout` |
+| `COUPON_INVALID` | `Cupón no válido o vencido` (no existe, inactivo o fuera de su vigencia) |
+| `SHIPPING_METHOD_REQUIRED` | `Seleccione un método de envío para aplicar este cupón` (cupón `FREE_SHIPPING` sin `shipping_method_id`) |
+| `INVALID_ORDER` | `Método de envío no disponible` (el método no existe, está inactivo o su zona lo está) |
 | `COUPON_MIN_PURCHASE` | `El cupón requiere una compra mínima de Bs. 50.00` |
 | `COUPON_LIMIT_REACHED` | `Este cupón ya alcanzó su límite de usos` |
 | `COUPON_USER_LIMIT` | `Ya usó este cupón el máximo de veces permitido` |
@@ -220,10 +225,10 @@ Solo administradores. Campos de `POST` y `PUT` (los mismos de la tabla `coupons`
 | --- | --- |
 | `code` | Obligatorio, 3 a 50 letras o números; se guarda en mayúsculas y es único (repetido: `409 DUPLICATE_CODE`) |
 | `description` | Obligatoria, hasta 500 caracteres |
-| `discount_type` | `PERCENTAGE` o `FIXED_AMOUNT` (el envío gratis aún no se aplica en el checkout) |
-| `discount_value` | Mayor a 0, hasta 2 decimales; máximo 100 si es `PERCENTAGE`; en Bs. si es `FIXED_AMOUNT` |
+| `discount_type` | `PERCENTAGE`, `FIXED_AMOUNT` o `FREE_SHIPPING` (descuenta el costo de envío completo, hasta `maximum_discount_amount` si se define) |
+| `discount_value` | Mayor a 0, hasta 2 decimales; máximo 100 si es `PERCENTAGE`; en Bs. si es `FIXED_AMOUNT`; no se pide para `FREE_SHIPPING` (se guarda 0) |
 | `minimum_purchase_amount` | Opcional, ≥ 0, en Bs., sobre el subtotal |
-| `maximum_discount_amount` | Opcional, > 0, en Bs. (tope de un `PERCENTAGE`) |
+| `maximum_discount_amount` | Opcional, > 0, en Bs. (tope de un `PERCENTAGE` o del envío cubierto por un `FREE_SHIPPING`) |
 | `usage_limit_total` | Opcional, entero ≥ 1, usos totales (`times_used` los cuenta; no se edita) |
 | `usage_limit_per_user` | Opcional, entero ≥ 1, pedidos no cancelados de un mismo cliente |
 | `starts_at`, `expires_at` | Fechas ISO 8601; `expires_at` debe ser posterior a `starts_at` |

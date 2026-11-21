@@ -22,6 +22,7 @@ export const createCouponRoutes = (limiters) => {
    * @route   POST /api/coupons/validate
    * @desc    Discount of a coupon on the customer's cart, computed on the server.
    *          Optional `items` (same shape as order creation) replace the server-side cart.
+   *          `shipping_method_id` is required for FREE_SHIPPING coupons (their discount is the shipping cost).
    * @access  Private
    */
   router.post(
@@ -29,6 +30,7 @@ export const createCouponRoutes = (limiters) => {
     limiters.couponValidate,
     [
       body('code').custom((value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 50).withMessage('Ingrese el código del cupón'),
+      body('shipping_method_id').optional({ nullable: true }).custom(isPositiveInteger).withMessage('ID de método de envío inválido'),
       body('items').optional().isArray({ min: 1, max: 50 }).withMessage('Debe incluir entre 1 y 50 productos'),
       body('items.*.product_id').custom(isPositiveInteger).withMessage('ID de producto inválido'),
       body('items.*.variant_id').optional({ nullable: true }).custom(isPositiveInteger).withMessage('ID de variante inválido'),

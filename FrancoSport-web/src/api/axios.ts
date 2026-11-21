@@ -217,6 +217,8 @@ function handleUnauthorized() {
   localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN); // Limpiar refresh token también
   localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+  // Sin esto el store persistido sigue marcando sesión iniciada y /login devuelve al usuario a la tienda con su nombre
+  localStorage.removeItem(STORAGE_KEYS.AUTH_STORE);
 
   // Redirigir a login (solo si no estamos ya ahí)
   if (!window.location.pathname.includes('/login')) {
@@ -227,12 +229,20 @@ function handleUnauthorized() {
 // ===== HELPER FUNCTIONS =====
 
 /**
+ * Mensajes de campo de un error de validación (400): decir qué campo falló es más útil que "Error de validación"
+ */
+export function validationDetails(apiError: ApiError | undefined): string | null {
+  const messages = (apiError?.details ?? []).map((detail) => detail.message).filter(Boolean);
+  return messages.length > 0 ? [...new Set(messages)].join('. ') : null;
+}
+
+/**
  * Extrae el mensaje de error de la respuesta
  */
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const apiError = (error.response?.data as any)?.error as ApiError | undefined;
-    return apiError?.message || error.message || 'Ha ocurrido un error';
+    return validationDetails(apiError) || apiError?.message || error.message || 'Ha ocurrido un error';
   }
 
   if (error instanceof Error) {

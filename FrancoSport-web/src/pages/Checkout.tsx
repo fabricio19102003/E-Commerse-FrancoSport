@@ -10,6 +10,7 @@ import { getAddresses, createAddress } from '@/api/users.service';
 import { createOrder } from '@/api/orders.service';
 import { validateCoupon } from '@/api/coupons.service';
 import { getShippingMethods } from '@/api/shipping.service';
+import axios from 'axios';
 import { getErrorMessage } from '@/api/axios';
 import { ROUTES, generateRoute } from '@/constants/routes';
 import type { Address, AvailableShippingMethod, CouponPreview } from '@/types';
@@ -25,7 +26,7 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const orderPlacedRef = useRef(false);
   const { items, subtotal, clearCart } = useCartStore();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, updateUser } = useAuthStore();
 
   const [step, setStep] = useState<'address' | 'payment' | 'review'>('address');
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -58,7 +59,11 @@ const Checkout: React.FC = () => {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const cartKey = items.map((item) => `${item.product_id}:${item.variant_id ?? ''}:${item.quantity}`).join('|');
   const appliedCartKeyRef = useRef('');
+  const appliedShippingMethodRef = useRef<number | null>(null);
   const couponDiscount = appliedCoupon ? Number(appliedCoupon.discount_amount) : 0;
+  const isShippingCoupon = appliedCoupon?.applies_to === 'SHIPPING';
+  // With a shipping coupon the shipping cost is the one the server used for the discount, i.e. the one it charges
+  const orderShipping = isShippingCoupon && appliedCoupon?.shipping_cost != null ? Number(appliedCoupon.shipping_cost) : shippingCost;
   // With a coupon the subtotal is the one the server used for the discount, i.e. the one it charges
   const orderSubtotal = appliedCoupon ? Number(appliedCoupon.subtotal) : subtotal;
 
@@ -66,7 +71,7 @@ const Checkout: React.FC = () => {
   const [redeemPoints, setRedeemPoints] = useState(0);
   const pointsValue = redeemPoints / 100; // 100 points = Bs. 1
   const maxRedeemablePoints = user ? Math.min(user.loyalty_points, Math.round((subtotal + shippingCost) * 100)) : 0;
-  const orderTotal = orderSubtotal + shippingCost - couponDiscount - pointsValue;
+  const orderTotal = orderSubtotal + orderShipping - couponDiscount - pointsValue;
 
   // New Address Form
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -177,6 +182,8 @@ const Checkout: React.FC = () => {
       setCouponError(null);
       const preview = await validateCoupon({
         code,
+        // A free-shipping coupon discounts the cost of this shipping method
+        shipping_method_id: selectedShippingMethodId ?? undefined,
         items: items.map((item) => ({
           product_id: item.product_id,
           variant_id: item.variant_id,
@@ -184,6 +191,7 @@ const Checkout: React.FC = () => {
         })),
       });
       appliedCartKeyRef.current = cartKey;
+      appliedShippingMethodRef.current = selectedShippingMethodId;
       setAppliedCoupon(preview);
       setRedeemPoints(0);
       setCouponInput(preview.code);
@@ -208,6 +216,14 @@ const Checkout: React.FC = () => {
       setCouponError('El carrito cambió: vuelva a aplicar el cupón');
     }
   }, [cartKey, appliedCoupon]);
+
+  // A free-shipping discount computed for another shipping method is no longer the one the API would charge
+  useEffect(() => {
+    if (appliedCoupon?.applies_to === 'SHIPPING' && appliedShippingMethodRef.current !== selectedShippingMethodId) {
+      setAppliedCoupon(null);
+      setCouponError('El método de envío cambió: vuelva a aplicar el cupón');
+    }
+  }, [selectedShippingMethodId, appliedCoupon]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -285,6 +301,10 @@ const Checkout: React.FC = () => {
       navigate(generateRoute.orderDetail(newOrder.order_number));
     } catch (error) {
       console.error('Error placing order:', error);
+      // The email was marked unverified elsewhere (e.g. an admin changed it): show the notice with its resend button
+      if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'EMAIL_NOT_VERIFIED') {
+        updateUser({ email_verified: false });
+      }
       toast.error(getErrorMessage(error) || 'Error al procesar el pedido');
     } finally {
       setIsPlacingOrder(false);
@@ -691,7 +711,7 @@ const Checkout: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-text-secondary">
                     <span>Envío</span>
-                    <span>{formatCurrency(shippingCost)}</span>
+                    <span>{formatCurrency(orderShipping)}</span>
                   </div>
 
                   {/* Coupon (or points, not both) */}
@@ -780,7 +800,11 @@ const Checkout: React.FC = () => {
 
                   {appliedCoupon && (
                     <div className="flex justify-between text-green-600 font-medium">
-                      <span>Descuento (Cupón {appliedCoupon.code})</span>
+                      <span>
+                        {isShippingCoupon
+                          ? `${couponDiscount >= orderShipping ? 'Envío gratis' : 'Descuento de envío'} (Cupón ${appliedCoupon.code})`
+                          : `Descuento (Cupón ${appliedCoupon.code})`}
+                      </span>
                       <span>-{formatCurrency(couponDiscount)}</span>
                     </div>
                   )}

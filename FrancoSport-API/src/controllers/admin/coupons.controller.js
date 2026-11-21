@@ -104,7 +104,7 @@ const couponData = (body) => ({
   code: body.code,
   description: body.description,
   discount_type: body.discount_type,
-  discount_value: body.discount_value,
+  discount_value: body.discount_type === 'FREE_SHIPPING' ? 0 : body.discount_value,
   minimum_purchase_amount: body.minimum_purchase_amount ?? null,
   maximum_discount_amount: body.maximum_discount_amount ?? null,
   usage_limit_total: body.usage_limit_total ?? null,
