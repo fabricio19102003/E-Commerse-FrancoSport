@@ -7,11 +7,12 @@ import { useAuthStore } from '@/store';
 import toast from 'react-hot-toast';
 import { WavyBackground } from '@/components/ui/wavy-background';
 import { logLogin } from '@/api/analytics.service';
+import { getErrorMessage } from '@/api/axios';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isLoading, error } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -44,8 +45,7 @@ const Login: React.FC = () => {
       // Redirect to the page they tried to access, or home
       navigate(from, { replace: true });
     } catch (err) {
-      // El error ya está en el store, pero mostramos toast
-      toast.error(error || 'Error al iniciar sesión');
+      toast.error(getErrorMessage(err) || 'Error al iniciar sesión');
     }
   };
 

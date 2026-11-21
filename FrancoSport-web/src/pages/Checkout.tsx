@@ -10,6 +10,7 @@ import { getAddresses, createAddress } from '@/api/users.service';
 import { createOrder } from '@/api/orders.service';
 import { validateCoupon } from '@/api/coupons.service';
 import { getShippingMethods } from '@/api/shipping.service';
+import axios from 'axios';
 import { getErrorMessage } from '@/api/axios';
 import { ROUTES, generateRoute } from '@/constants/routes';
 import type { Address, AvailableShippingMethod, CouponPreview } from '@/types';
@@ -25,7 +26,7 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const orderPlacedRef = useRef(false);
   const { items, subtotal, clearCart } = useCartStore();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, updateUser } = useAuthStore();
 
   const [step, setStep] = useState<'address' | 'payment' | 'review'>('address');
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -300,6 +301,10 @@ const Checkout: React.FC = () => {
       navigate(generateRoute.orderDetail(newOrder.order_number));
     } catch (error) {
       console.error('Error placing order:', error);
+      // The email was marked unverified elsewhere (e.g. an admin changed it): show the notice with its resend button
+      if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'EMAIL_NOT_VERIFIED') {
+        updateUser({ email_verified: false });
+      }
       toast.error(getErrorMessage(error) || 'Error al procesar el pedido');
     } finally {
       setIsPlacingOrder(false);

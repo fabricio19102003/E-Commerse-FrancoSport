@@ -4,9 +4,17 @@ import prisma from '../utils/prisma.js';
 
 const frontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
 
+// Links of an email body (verification and reset links included)
+const linksIn = (html) => [
+  ...new Set([...String(html).matchAll(/href="(https?:\/\/[^"]+)"/g)].map((match) => match[1].replace(/&amp;/g, '&'))),
+];
+
 export const sendEmail = async (to, subject, html) => {
   if (!transporter) {
-    console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}`);
+    // Without SMTP nothing is sent. Outside production the links are logged too, so the
+    // verification and reset flows can be completed locally; in production never (a token is a credential)
+    const links = process.env.NODE_ENV === 'production' ? [] : linksIn(html);
+    console.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}${links.length ? `, Links: ${links.join(' ')}` : ''}`);
     return;
   }
 

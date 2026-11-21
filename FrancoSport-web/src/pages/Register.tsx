@@ -7,10 +7,11 @@ import { useAuthStore } from '@/store';
 import toast from 'react-hot-toast';
 
 import { logSignUp } from '@/api/analytics.service';
+import { getErrorMessage } from '@/api/axios';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-  const { register, isLoading, error } = useAuthStore();
+  const { register, isLoading } = useAuthStore();
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -63,7 +64,7 @@ const Register: React.FC = () => {
       toast.success('¡Cuenta creada! Le enviamos un correo para verificar su dirección.');
       navigate(ROUTES.HOME);
     } catch (err) {
-      toast.error(error || 'Error al crear la cuenta');
+      toast.error(getErrorMessage(err) || 'Error al crear la cuenta');
     }
   };
 
