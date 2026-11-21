@@ -59,8 +59,8 @@ El proyecto estará disponible en [http://localhost:5173](http://localhost:5173)
 ### HTTP Client
 - **Axios 1.7.9** - HTTP requests con interceptors
 
-### Payments
-- **Stripe React & JS** - Procesamiento de pagos seguro
+### Pagos
+- QR, transferencia bancaria y pago contra entrega (la tienda confirma el pago)
 
 ### UI Components
 - **Lucide React 0.468.0** - Iconos modernos
@@ -151,7 +151,6 @@ Copia `.env.example` a `.env` y configura:
 
 ```env
 VITE_API_URL=http://localhost:3000/api/v1
-VITE_STRIPE_PUBLIC_KEY=pk_test_your_key_here
 VITE_APP_NAME=Franco Sport
 VITE_APP_SLOGAN=No es suerte, es esfuerzo
 ```
@@ -166,7 +165,7 @@ VITE_APP_SLOGAN=No es suerte, es esfuerzo
 - ⏳ Autenticación (Login, Registro, Recuperación)
 - ⏳ Catálogo de productos con filtros y búsqueda
 - ⏳ Carrito de compras persistente
-- ⏳ Checkout completo con Stripe
+- ⏳ Checkout completo (QR, transferencia, contra entrega, cupones)
 - ⏳ Gestión de pedidos
 - ⏳ Panel administrativo completo
 - ⏳ Sistema de reseñas
@@ -227,7 +226,7 @@ El servidor de desarrollo tiene un proxy configurado:
 
 ### Sprint 3 - Ventas (3 semanas)
 - [ ] Proceso de checkout
-- [ ] Integración con Stripe
+- [ ] Confirmación de pagos (QR, transferencia, contra entrega)
 - [ ] Gestión de pedidos
 
 ### Sprint 4 - Admin (2 semanas)

@@ -142,7 +142,6 @@ export interface CheckoutData {
 
 export interface CheckoutResponse {
   order: Order;
-  payment_intent_client_secret?: string; // For Stripe
 }
 
 // ===== CANCEL ORDER =====

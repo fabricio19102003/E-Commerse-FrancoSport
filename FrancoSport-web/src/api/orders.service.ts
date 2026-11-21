@@ -39,7 +39,9 @@ export const cancelOrder = async (orderNumber: string, reason: string): Promise<
  */
 export interface CreateOrderPayload extends CheckoutData {
   items: { product_id: number; variant_id?: number; quantity: number }[];
+  /** A coupon or points, never both (the API rejects both) */
   redeem_points?: number;
+  coupon_code?: string;
 }
 
 export const createOrder = async (data: CreateOrderPayload): Promise<Order> => {

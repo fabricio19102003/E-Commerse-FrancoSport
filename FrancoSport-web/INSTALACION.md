@@ -25,8 +25,6 @@ npm run type-check
 - ✅ `react-hook-form@7.54.2` - Form management
 - ✅ `zod@3.24.1` - Schema validation
 - ✅ `@hookform/resolvers@3.9.1` - Form + Zod integration
-- ✅ `@stripe/react-stripe-js@2.10.0` - Stripe React components
-- ✅ `@stripe/stripe-js@4.10.0` - Stripe JS SDK
 - ✅ `lucide-react@0.468.0` - Icon library
 - ✅ `date-fns@4.1.0` - Date utilities
 - ✅ `react-hot-toast@2.4.1` - Toast notifications

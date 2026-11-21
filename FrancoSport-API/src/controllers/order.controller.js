@@ -13,10 +13,11 @@ import {
   POINTS_PER_UNIT,
   calculateShippingCost,
   cancelOrderInTransaction,
-  roundMoney,
+  loadPricedLines,
   runTransaction,
   sortByStockLock,
 } from '../services/order.service.js';
+import { findUsableCoupon, normalizeCouponCode, takeCouponUse } from '../services/coupon.service.js';
 
 const { Decimal } = Prisma;
 
@@ -238,6 +239,12 @@ export const createOrder = async (req, res, next) => {
     // the proof is uploaded afterwards to POST /api/payment/proof/:orderId
     const { items, shipping_address_id, shipping_method_id, payment_method } = req.body;
     const redeemPoints = req.body.redeem_points ?? 0;
+    const couponCode = normalizeCouponCode(req.body.coupon_code);
+
+    // One coupon or points, never both (checked before anything is read or changed)
+    if (couponCode && redeemPoints > 0) {
+      throw new OrderError('Puede usar un cupón o sus puntos, no ambos', { code: 'COUPON_POINTS_CONFLICT' });
+    }
 
     // Same product/variant twice is rejected, not merged
     const seen = new Set();
@@ -267,47 +274,11 @@ export const createOrder = async (req, res, next) => {
         throw new OrderError('Método de envío no disponible');
       }
 
-      let subtotal = new Decimal(0);
-      let totalWeight = new Decimal(0);
-      const lines = [];
-
       // Prices, weights and availability come only from the database
-      for (const item of items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.product_id },
-          include: { variants: true },
-        });
+      const { lines, subtotal, totalWeight } = await loadPricedLines(tx, items);
 
-        if (!product) {
-          throw new OrderError(`Producto no encontrado: ${item.product_id}`);
-        }
-        if (!product.is_active) {
-          throw new OrderError(`El producto ${product.name} no está disponible`);
-        }
-
-        let price = new Decimal(product.price);
-        let variant = null;
-
-        if (item.variant_id) {
-          variant = product.variants.find((v) => v.id === item.variant_id);
-          if (!variant) {
-            throw new OrderError(`Variante no encontrada: ${item.variant_id}`);
-          }
-          if (!variant.is_active) {
-            throw new OrderError(`La variante ${variant.variant_name} no está disponible`);
-          }
-          // A variant without its own price uses the product price
-          if (variant.price !== null) {
-            price = new Decimal(variant.price);
-          }
-        }
-
-        const itemSubtotal = roundMoney(price.times(item.quantity));
-        subtotal = subtotal.plus(itemSubtotal);
-        totalWeight = totalWeight.plus(new Decimal(product.weight).times(item.quantity));
-
-        lines.push({ item, product, variant, price, itemSubtotal });
-      }
+      // Coupon rules that need no counter fail before any stock is taken
+      const usable = couponCode ? await findUsableCoupon(tx, couponCode, subtotal) : null;
 
       // Take stock atomically: the conditional update fails if another order took it first.
       // Fixed order (product, variant) so concurrent orders do not deadlock.
@@ -327,6 +298,11 @@ export const createOrder = async (req, res, next) => {
             variant ? `Stock insuficiente para ${product.name} (${variant.sku})` : `Stock insuficiente para ${product.name}`
           );
         }
+      }
+
+      // The use is taken after the stock (the lock order cancel and reopen also follow); a rejection rolls back the stock
+      if (usable) {
+        await takeCouponUse(tx, usable.coupon, userId);
       }
 
       const orderItemsData = lines.map(({ item, product, variant, price, itemSubtotal }) => ({
@@ -365,7 +341,8 @@ export const createOrder = async (req, res, next) => {
           }
         }
       }
-      const discountAmount = new Decimal(pointsUsed).dividedBy(POINTS_PER_UNIT);
+      // The discount is the coupon's or the points' (never both), and never touches shipping
+      const discountAmount = usable ? usable.discount : new Decimal(pointsUsed).dividedBy(POINTS_PER_UNIT);
       const total = grossTotal.minus(discountAmount);
 
       // Generate order number (timestamp plus random suffix)
@@ -385,6 +362,7 @@ export const createOrder = async (req, res, next) => {
           shipping_cost: shippingCost,
           tax_amount: 0,
           discount_amount: discountAmount,
+          coupon_id: usable ? usable.coupon.id : null,
           total_amount: total,
           items: {
             create: orderItemsData,

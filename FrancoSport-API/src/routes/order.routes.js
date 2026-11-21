@@ -6,7 +6,7 @@
 import express from 'express';
 import { body } from 'express-validator';
 import { getOrders, getOrder, cancelOrder, createOrder } from '../controllers/order.controller.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireVerifiedEmail } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 export const createOrderRoutes = (limiters) => {
@@ -21,11 +21,12 @@ export const createOrderRoutes = (limiters) => {
 
   /**
    * @route   POST /api/orders
-   * @desc    Create new order
+   * @desc    Create new order (optional coupon_code, or redeem_points, not both)
    * @access  Private
    */
   router.post(
     '/',
+    requireVerifiedEmail,
     limiters.orderCreate,
     [
       body('items').isArray({ min: 1 }).withMessage('Debe incluir al menos un producto'),
@@ -40,6 +41,10 @@ export const createOrderRoutes = (limiters) => {
         .optional({ nullable: true })
         .custom(isIntegerBetween(0, Number.MAX_SAFE_INTEGER))
         .withMessage('Los puntos a canjear deben ser un número entero mayor o igual a 0'),
+      body('coupon_code')
+        .optional({ nullable: true })
+        .custom((value) => typeof value === 'string' && value.trim().length <= 50)
+        .withMessage('Código de cupón inválido'),
       validate
     ],
     createOrder

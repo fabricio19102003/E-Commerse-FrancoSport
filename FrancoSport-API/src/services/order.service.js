@@ -6,6 +6,8 @@
  */
 
 import { Prisma } from '@prisma/client';
+// coupon.service also imports from this module; each only uses the other inside functions
+import { releaseCouponUse, retakeCouponUse } from './coupon.service.js';
 
 const { Decimal } = Prisma;
 
@@ -64,8 +66,59 @@ export const calculateShippingCost = (method, totalWeightKg) => {
 };
 
 /**
+ * Price the requested lines from the database only: existing, active products and variants,
+ * a variant without its own price uses the product price. Does not touch stock.
+ *
+ * @returns {Promise<{ lines: object[], subtotal: Decimal, totalWeight: Decimal }>}
+ */
+export const loadPricedLines = async (db, items) => {
+  let subtotal = new Decimal(0);
+  let totalWeight = new Decimal(0);
+  const lines = [];
+
+  for (const item of items) {
+    const product = await db.product.findUnique({
+      where: { id: item.product_id },
+      include: { variants: true },
+    });
+
+    if (!product) {
+      throw new OrderError(`Producto no encontrado: ${item.product_id}`);
+    }
+    if (!product.is_active) {
+      throw new OrderError(`El producto ${product.name} no está disponible`);
+    }
+
+    let price = new Decimal(product.price);
+    let variant = null;
+
+    if (item.variant_id) {
+      variant = product.variants.find((v) => v.id === item.variant_id);
+      if (!variant) {
+        throw new OrderError(`Variante no encontrada: ${item.variant_id}`);
+      }
+      if (!variant.is_active) {
+        throw new OrderError(`La variante ${variant.variant_name} no está disponible`);
+      }
+      // A variant without its own price uses the product price
+      if (variant.price !== null) {
+        price = new Decimal(variant.price);
+      }
+    }
+
+    const itemSubtotal = roundMoney(price.times(item.quantity));
+    subtotal = subtotal.plus(itemSubtotal);
+    totalWeight = totalWeight.plus(new Decimal(product.weight).times(item.quantity));
+
+    lines.push({ item, product, variant, price, itemSubtotal });
+  }
+
+  return { lines, subtotal, totalWeight };
+};
+
+/**
  * Cancel an order inside a transaction: marks it CANCELLED, restores stock,
- * refunds the redeemed points and records the history.
+ * refunds the redeemed points, releases the coupon use and records the history.
  *
  * The status change is a conditional update, so concurrent or repeated calls
  * claim the cancellation only once; everything else runs only for the winner.
@@ -126,6 +179,9 @@ export const cancelOrderInTransaction = async (tx, order, { reason, historyNotes
     });
   }
 
+  // The claim above makes this run once per cancellation
+  await releaseCouponUse(tx, order);
+
   await tx.orderStatusHistory.create({
     data: {
       order_id: order.id,
@@ -142,10 +198,10 @@ const lineName = (item) => (item.variant_name ? `${item.product_name} (${item.va
 
 /**
  * Reopen a CANCELLED order inside a transaction: back to PENDING, takes the
- * stock again and deducts the redeemed points again.
+ * stock again, deducts the redeemed points again and takes the coupon use again.
  *
- * Throws OrderError (rolling everything back) if any line lacks stock or the
- * customer lacks points. The status change is a conditional update, so
+ * Throws OrderError (rolling everything back) if any line lacks stock, the
+ * customer lacks points or the coupon is no longer valid. The status change is a conditional update, so
  * repeated or concurrent calls reopen only once.
  *
  * @returns {Promise<object|null>} the reopened order, or null if it was not cancelled
@@ -202,6 +258,9 @@ export const reopenOrderInTransaction = async (tx, order, { historyNotes, create
       },
     });
   }
+
+  // Same lock order as create and cancel: stock first, then the coupon
+  await retakeCouponUse(tx, order);
 
   // A payment refunded by the cancellation has to happen again
   const current = await tx.order.findUnique({ where: { id: order.id }, select: { payment_status: true } });
